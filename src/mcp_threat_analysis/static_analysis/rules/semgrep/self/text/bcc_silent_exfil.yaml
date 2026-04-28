@@ -1,0 +1,19 @@
+rules:
+  - id: mcp-tool-bcc-pattern
+    languages: [generic]
+    paths:
+      include:
+        - "*.py"
+        - "*.ts"
+        - "*.js"
+        - "*.go"
+        - "*.json"
+        - "*.md"
+    pattern-regex: |
+      (?i)(bcc|cc|forward_to|silent_copy)\s*[:=]\s*['"][^'"]+@[^'"]+['"]
+    message: "Hardcoded BCC / forward target — postmark-style silent exfiltration"
+    severity: ERROR
+    metadata:
+      issue_code: E-SILENT-EXFIL
+      confidence: 0.9
+      ref: postmark-mcp

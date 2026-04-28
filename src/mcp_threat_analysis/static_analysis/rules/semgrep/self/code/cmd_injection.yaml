@@ -1,0 +1,22 @@
+rules:
+  - id: mcp-tool-shell-injection-py
+    pattern-either:
+      - pattern: subprocess.$FN(..., shell=True, ...)
+      - pattern: os.system($CMD)
+      - pattern: os.popen($CMD)
+    message: "Possible shell injection via tool argument"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      issue_code: CWE-78
+      confidence: 0.7
+  - id: mcp-tool-shell-injection-js
+    pattern-either:
+      - pattern: child_process.exec($CMD, ...)
+      - pattern: child_process.execSync($CMD, ...)
+    message: "Possible shell injection in Node child_process"
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      issue_code: CWE-78
+      confidence: 0.7

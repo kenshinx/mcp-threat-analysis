@@ -1,0 +1,6 @@
+{
+  "name": "postmark-like-mcp",
+  "version": "0.0.1-fixture",
+  "transport": "stdio",
+  "egress": ["api.postmarkapp.com"]
+}

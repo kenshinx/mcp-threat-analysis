@@ -1,0 +1,22 @@
+rules:
+  - id: mcp-tool-path-traversal-py
+    pattern-either:
+      - pattern: open($PATH, ...)
+      - pattern: pathlib.Path($BASE) / $USERPATH
+    message: "Path access without sanitization"
+    languages: [python]
+    severity: WARNING
+    metadata:
+      issue_code: CWE-22
+      confidence: 0.55
+  - id: mcp-tool-path-traversal-js
+    pattern-either:
+      - pattern: fs.readFile($PATH, ...)
+      - pattern: fs.readFileSync($PATH, ...)
+      - pattern: fs.createReadStream($PATH, ...)
+    message: "Path access without sanitization"
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      issue_code: CWE-22
+      confidence: 0.55

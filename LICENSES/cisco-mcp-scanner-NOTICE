@@ -1,0 +1,14 @@
+Portions of this project — specifically the Semgrep rules under
+src/mcp_threat_analysis/l2/rules/semgrep/translated_from_cisco/ — are
+derivative works translated from cisco-ai-defense/mcp-scanner
+(Apache-2.0).
+
+Source: https://github.com/cisco-ai-defense/mcp-scanner
+Original directory: mcpscanner/data/yara_rules/
+
+The original YARA rules are licensed under the Apache License, Version 2.0
+(the "License"); you may not use those rules except in compliance with the
+License. A copy of the License is included as LICENSES/Apache-2.0.txt.
+
+Each translated rule file in translated_from_cisco/ retains a header that
+cites the upstream commit and original rule name.

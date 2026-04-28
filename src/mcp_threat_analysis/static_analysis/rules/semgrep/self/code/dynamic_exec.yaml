@@ -1,0 +1,23 @@
+rules:
+  - id: mcp-tool-dynamic-exec-py
+    pattern-either:
+      - pattern: eval($CODE)
+      - pattern: exec($CODE)
+    message: "Dynamic code execution"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      issue_code: CWE-95
+      confidence: 0.85
+  - id: mcp-tool-dynamic-exec-js
+    pattern-either:
+      - pattern: eval($CODE)
+      - pattern: Function($CODE)
+      - pattern: vm.runInContext($CODE, ...)
+      - pattern: vm.runInNewContext($CODE, ...)
+    message: "Dynamic code execution"
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      issue_code: CWE-95
+      confidence: 0.85

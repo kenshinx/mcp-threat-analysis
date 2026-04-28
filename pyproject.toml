@@ -1,0 +1,54 @@
+[project]
+name = "mcp-threat-analysis"
+version = "0.1.0"
+description = "Whole-internet malicious MCP server detection platform"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+    "psycopg[binary]>=3.1",
+    "pgvector>=0.2.5",
+    "anthropic>=0.39",
+    "httpx>=0.27",
+    "pyyaml>=6.0",
+    "structlog>=24.1",
+    "tree-sitter>=0.21",
+    "tree-sitter-python>=0.21",
+    "tree-sitter-typescript>=0.21",
+    "tree-sitter-javascript>=0.21",
+    "tree-sitter-go>=0.21",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "tenacity>=8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+mta-static = "mcp_threat_analysis.static_analysis.cli:main"
+mta-semantic = "mcp_threat_analysis.semantic_analysis.cli:main"
+mta-risk = "mcp_threat_analysis.risk_scoring.cli:main"
+mta-api = "mcp_threat_analysis.risk_scoring.api.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_threat_analysis"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["src/mcp_threat_analysis/tests"]

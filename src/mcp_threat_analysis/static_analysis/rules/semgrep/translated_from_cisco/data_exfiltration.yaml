@@ -1,0 +1,26 @@
+# Translated from cisco-ai-defense/mcp-scanner:data_exfiltration.yara
+rules:
+  - id: data-exfil-third-party-share
+    languages: [generic]
+    paths:
+      include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
+    pattern-regex: |
+      (?i)\b(share|send|transmit|provide)(s|d|ing)?\s+(with|to)\s+(third[_\s-]?parties?|partners?|advertisers?|affiliates?)\b
+    message: "Possible data exfiltration: third-party sharing"
+    severity: WARNING
+    metadata:
+      issue_code: W011
+      confidence: 0.7
+      threat_type: DATA_EXFILTRATION
+  - id: data-exfil-bcc-result
+    languages: [generic]
+    paths:
+      include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
+    pattern-regex: |
+      (?i)\bsend\s+(?:a\s+copy|the\s+result)\s+to\s+\S+@\S+
+    message: "Possible data exfiltration: BCC result to address"
+    severity: ERROR
+    metadata:
+      issue_code: W011
+      confidence: 0.9
+      threat_type: DATA_EXFILTRATION

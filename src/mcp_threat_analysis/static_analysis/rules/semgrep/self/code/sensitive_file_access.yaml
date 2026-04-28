@@ -1,0 +1,15 @@
+rules:
+  - id: mcp-tool-sensitive-file-access
+    pattern-either:
+      - pattern: open("/etc/passwd", ...)
+      - pattern: open("/etc/shadow", ...)
+      - pattern: open("$HOME/.ssh/id_rsa", ...)
+      - pattern: open("$HOME/.aws/credentials", ...)
+      - pattern: requests.get("http://169.254.169.254/...")
+      - pattern: fetch("http://169.254.169.254/...")
+    message: "Access to sensitive system file or cloud metadata endpoint"
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    metadata:
+      issue_code: E-SENS-FILE
+      confidence: 0.95

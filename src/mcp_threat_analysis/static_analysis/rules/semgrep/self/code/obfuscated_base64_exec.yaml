@@ -1,0 +1,21 @@
+rules:
+  - id: mcp-obfuscated-base64-exec-py
+    pattern-either:
+      - pattern: exec(base64.b64decode($S))
+      - pattern: exec(base64.b64decode($S).decode())
+    message: "Base64-decoded payload passed to exec — strong obfuscation signal"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      issue_code: E-OBFUSCATION
+      confidence: 0.95
+  - id: mcp-obfuscated-base64-exec-js
+    pattern-either:
+      - pattern: eval(atob($S))
+      - pattern: Function(atob($S))()
+    message: "atob-decoded payload passed to eval/Function"
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      issue_code: E-OBFUSCATION
+      confidence: 0.95

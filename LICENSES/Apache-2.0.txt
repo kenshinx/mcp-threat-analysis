@@ -1,0 +1,7 @@
+Apache License
+Version 2.0, January 2004
+http://www.apache.org/licenses/
+
+The full text of the Apache License 2.0 is available at the URL above and is
+incorporated here by reference. Use of any third-party components covered by
+this license is subject to its terms.

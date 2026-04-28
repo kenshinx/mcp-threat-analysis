@@ -1,0 +1,38 @@
+# Translated from cisco-ai-defense/mcp-scanner:prompt_injection.yara
+rules:
+  - id: prompt-injection-ignore-prior
+    languages: [generic]
+    paths:
+      include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
+    pattern-regex: |
+      (?i)\b(ignore|disregard|forget)\s+(?:the\s+)?(?:previous|above|all|prior)\s+(?:instructions?|prompts?|rules?|directives?)
+    message: "Prompt injection: instruction override"
+    severity: ERROR
+    metadata:
+      issue_code: E001
+      confidence: 0.9
+      threat_type: PROMPT_INJECTION
+  - id: prompt-injection-role-hijack
+    languages: [generic]
+    paths:
+      include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
+    pattern-regex: |
+      (?i)\byou\s+are\s+now\s+[\w\s]{3,80}|\bact\s+as\s+(?:a|an)?\s+[\w\s]{3,60}
+    message: "Prompt injection: role hijack"
+    severity: WARNING
+    metadata:
+      issue_code: E001
+      confidence: 0.7
+      threat_type: PROMPT_INJECTION
+  - id: prompt-injection-sentinels
+    languages: [generic]
+    paths:
+      include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
+    pattern-regex: |
+      <\|im_start\|>|<\|im_end\|>|<\|endoftext\|>|</?(?:system|assistant|user)>
+    message: "Prompt injection: chat-template sentinel injected into tool metadata"
+    severity: ERROR
+    metadata:
+      issue_code: E001
+      confidence: 0.95
+      threat_type: PROMPT_INJECTION
