@@ -49,10 +49,23 @@ class SemgrepAnalyzer(Analyzer):
             log.warning("semgrep.timeout", server=str(target.server_id))
             return []
         if res.returncode not in (0, 1):
+            stdout_head = res.stdout[:2000].decode("utf-8", errors="replace")
+            errors_summary: list[str] = []
+            try:
+                payload = json.loads(res.stdout or b"{}")
+                for err in (payload.get("errors") or [])[:10]:
+                    errors_summary.append(
+                        f"{err.get('type')}: {err.get('message')} "
+                        f"(path={err.get('path') or err.get('spans')})"
+                    )
+            except json.JSONDecodeError:
+                pass
             log.warning(
                 "semgrep.bad_rc",
                 rc=res.returncode,
                 stderr=res.stderr[:500].decode("utf-8", errors="replace"),
+                stdout_head=stdout_head,
+                semgrep_errors=errors_summary,
             )
             return []
         try:
@@ -72,8 +85,12 @@ class SemgrepAnalyzer(Analyzer):
             return out
         for sub in ("self/code", "self/text", "self/manifest", "translated_from_cisco"):
             p = self.rules_root / sub
-            if p.exists():
-                out.append(p)
+            if not p.exists():
+                continue
+            # Semgrep exits rc=2 if a config dir contains zero rule files.
+            if not any(p.rglob("*.yaml")) and not any(p.rglob("*.yml")):
+                continue
+            out.append(p)
         return out
 
     def _to_finding(

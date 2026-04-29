@@ -9,7 +9,7 @@ rules:
     severity: WARNING
     metadata:
       issue_code: CWE-918
-      confidence: 0.5
+      confidence: "0.5"
   - id: mcp-tool-ssrf-js
     pattern-either:
       - pattern: fetch($URL, ...)
@@ -19,4 +19,4 @@ rules:
     severity: WARNING
     metadata:
       issue_code: CWE-918
-      confidence: 0.5
+      confidence: "0.5"

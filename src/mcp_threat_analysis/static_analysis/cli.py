@@ -6,16 +6,25 @@ import asyncio
 import json
 import sys
 from dataclasses import asdict
+from pathlib import Path
 from uuid import UUID, uuid4
 
+from ..common.db import session_scope
 from ..common.models import ScanTarget
+from ..common.persistence import ensure_server
 from .orchestrator import StaticAnalysisConfig, StaticAnalysisOrchestrator
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser("mta-l2")
+    p = argparse.ArgumentParser("mta-static")
     p.add_argument("artifact", help="Local archive / directory / URL")
     p.add_argument("--server-id", default=None)
+    p.add_argument(
+        "--canonical-name",
+        default=None,
+        help="Stable server name; defaults to artifact basename. "
+        "Re-runs with the same name reuse the same server_id.",
+    )
     p.add_argument("--version", default="0.0.0")
     p.add_argument("--lang", default="python")
     p.add_argument(
@@ -29,9 +38,29 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def _derive_canonical_name(artifact: str) -> str:
+    base = Path(artifact).name
+    for ext in (".tgz", ".tar.gz", ".zip", ".whl"):
+        if base.endswith(ext):
+            return base[: -len(ext)]
+    return base or artifact
+
+
 async def _amain(ns: argparse.Namespace) -> int:
+    canonical_name = ns.canonical_name or _derive_canonical_name(ns.artifact)
+    server_id_hint = UUID(ns.server_id) if ns.server_id else None
+    if ns.no_persist:
+        server_id = server_id_hint or uuid4()
+    else:
+        async with session_scope() as session:
+            server_id = await ensure_server(
+                session,
+                canonical_name=canonical_name,
+                server_id=server_id_hint,
+                primary_lang=ns.lang,
+            )
     target = ScanTarget(
-        server_id=UUID(ns.server_id) if ns.server_id else uuid4(),
+        server_id=server_id,
         version=ns.version,
         artifact_type=ns.artifact_type,
         artifact_path=ns.artifact,

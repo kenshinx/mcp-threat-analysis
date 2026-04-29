@@ -9,7 +9,7 @@ rules:
     severity: ERROR
     metadata:
       issue_code: CWE-78
-      confidence: 0.7
+      confidence: "0.7"
   - id: mcp-tool-shell-injection-js
     pattern-either:
       - pattern: child_process.exec($CMD, ...)
@@ -19,4 +19,4 @@ rules:
     severity: ERROR
     metadata:
       issue_code: CWE-78
-      confidence: 0.7
+      confidence: "0.7"

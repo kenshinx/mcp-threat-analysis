@@ -38,6 +38,21 @@ _LANG_MAP = {
 
 _MAX_FILES = 50_000
 _TEXT_EXT = set(_LANG_MAP.keys()) | {".json", ".md", ".yaml", ".yml", ".toml"}
+_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    "dist",
+    "build",
+    ".next",
+    ".turbo",
+}
 
 
 class ArtifactTooLarge(Exception):
@@ -52,14 +67,44 @@ class TargetLoader:
     def prepare(self, target: ScanTarget) -> WorkDir:
         wd = Path(tempfile.mkdtemp(prefix=f"l2-{target.server_id}-", dir=self.root))
         try:
-            artifact = self._fetch(target.artifact_path, wd)
-            self._extract(artifact, wd)
-            artifact.unlink(missing_ok=True)
+            src = target.artifact_path
+            is_remote = src.startswith(("http://", "https://", "s3://"))
+            local = Path(src) if not is_remote else None
+            if local is not None and local.is_dir():
+                self._copy_directory(local, wd)
+            else:
+                artifact = self._fetch(src, wd)
+                self._extract(artifact, wd)
+                artifact.unlink(missing_ok=True)
             lang_files = self._index_languages(wd)
             return WorkDir(root_path=wd, primary_lang=target.primary_lang, lang_files=lang_files)
         except Exception:
             shutil.rmtree(wd, ignore_errors=True)
             raise
+
+    def _copy_directory(self, src_dir: Path, into: Path) -> None:
+        limit_bytes = get_settings().artifact_max_bytes
+        count = 0
+        total = 0
+        for src_path in src_dir.rglob("*"):
+            rel = src_path.relative_to(src_dir)
+            if any(part in _SKIP_DIRS for part in rel.parts):
+                continue
+            dst_path = into / rel
+            if src_path.is_dir():
+                dst_path.mkdir(parents=True, exist_ok=True)
+                continue
+            if src_path.is_symlink() or not src_path.is_file():
+                continue
+            sz = src_path.stat().st_size
+            total += sz
+            count += 1
+            if count > _MAX_FILES:
+                raise ArtifactTooLarge("file count exceeded")
+            if total > limit_bytes:
+                raise ArtifactTooLarge(f"directory copy exceeded {limit_bytes} bytes")
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src_path, dst_path)
 
     def cleanup(self, wd: WorkDir) -> None:
         shutil.rmtree(wd.root_path, ignore_errors=True)

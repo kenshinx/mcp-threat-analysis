@@ -9,10 +9,10 @@ rules:
         - "*.go"
         - "*.json"
         - "*.md"
-    pattern-regex: |
+    pattern-regex: |-
       (?i)(忽略.{0,10}(?:之前|上述|所有).{0,10}指令|無視してください.{0,30}指示|disregard\s+(?:previous|all)\s+instructions?)
     message: "Multilingual prompt-injection / instruction-override phrase"
     severity: WARNING
     metadata:
       issue_code: E001
-      confidence: 0.7
+      confidence: "0.7"

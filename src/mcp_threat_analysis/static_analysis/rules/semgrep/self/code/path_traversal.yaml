@@ -8,7 +8,7 @@ rules:
     severity: WARNING
     metadata:
       issue_code: CWE-22
-      confidence: 0.55
+      confidence: "0.55"
   - id: mcp-tool-path-traversal-js
     pattern-either:
       - pattern: fs.readFile($PATH, ...)
@@ -19,4 +19,4 @@ rules:
     severity: WARNING
     metadata:
       issue_code: CWE-22
-      confidence: 0.55
+      confidence: "0.55"

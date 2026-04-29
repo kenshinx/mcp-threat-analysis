@@ -11,6 +11,53 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models import Finding
 
 
+async def ensure_server(
+    session: AsyncSession,
+    *,
+    canonical_name: str,
+    server_id: UUID | None = None,
+    primary_lang: str | None = None,
+    kind: str = "package",
+) -> UUID:
+    """Smoke-test helper: upsert a minimal `servers` row, return its id.
+
+    L0 (discovery) and L1 (canonicalization) own the `servers` table in
+    production. Until those layers exist, static_analysis / semantic_analysis
+    invocations would FK-violate against an empty `servers` table; this helper
+    seeds the row keyed by `canonical_name` so re-runs on the same fixture
+    reuse the same id.
+    """
+    if server_id is not None:
+        await session.execute(
+            text(
+                """
+                INSERT INTO servers (id, canonical_name, kind, primary_lang)
+                VALUES (:id, :name, :kind, :lang)
+                ON CONFLICT (id) DO UPDATE SET last_updated = now()
+                """
+            ),
+            {
+                "id": str(server_id),
+                "name": canonical_name,
+                "kind": kind,
+                "lang": primary_lang,
+            },
+        )
+        return server_id
+    row = await session.execute(
+        text(
+            """
+            INSERT INTO servers (canonical_name, kind, primary_lang)
+            VALUES (:name, :kind, :lang)
+            ON CONFLICT (canonical_name) DO UPDATE SET last_updated = now()
+            RETURNING id
+            """
+        ),
+        {"name": canonical_name, "kind": kind, "lang": primary_lang},
+    )
+    return row.scalar_one()
+
+
 async def upsert_findings(
     session: AsyncSession,
     server_id: UUID,

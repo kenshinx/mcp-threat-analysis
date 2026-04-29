@@ -43,29 +43,33 @@ status: v2.0
 
 ### 0.3 威胁模型
 
-参考 [[Research & Learning/Agent 安全/供应链安全/恶意 MCP Server 公开案例分析]] + Snyk Agent Scan / MCPTox / Astrix 的研究，整理为四大类威胁：
+参考 [[Research & Learning/Agent 安全/供应链安全/恶意 MCP Server 公开案例分析]] + Snyk Agent Scan / MCPTox / Astrix 的研究，整理为四大类威胁。**威胁的可达性强烈依赖部署形态**（package 本地运行 vs remote URL 托管 vs hybrid 双发布），下表第二维标注每条威胁主要适用的 server kind：
 
-| 类别 | 威胁 | 业内代号 | 已有研究 |
-|---|---|---|---|
-| **A. 元数据层** | Tool Poisoning（TPA） | E001 | MCPTox 1312 测试样本 |
-| | Tool Shadowing | E002 | HiddenLayer / Snyk |
-| | Prompt Injection in description | E001/E004 | Invariant Labs |
-| | Hidden Unicode / ANSI Escape | — | Invariant demo |
-| | Untrusted Content（外部数据回流） | W011 | Snyk Agent Scan |
-| **B. 时间维度** | Sleeper Attack | — | postmark-mcp |
-| | Rug Pull | — | 理论 + postmark |
-| | Silent Capability Expansion | — | 小规模事件 |
-| **C. 代码层** | Command Injection | CWE-78 | Equixly 43% |
-| | Path Traversal | CWE-22 | Anthropic Git MCP CVE |
-| | SSRF | CWE-918 | Equixly 30% |
-| | Malware Payload | E006 | Snyk Agent Scan |
-| | Hardcoded Secrets | W008 | Astrix 53% |
-| | Credential Mishandling | W007 | Astrix |
-| **D. 跨实体关系** | Toxic Flows | ToxicFlows | Snyk Agent Scan / Invariant |
-| | Cross-Server Data Exfiltration | — | 理论攻击 |
-| **E. 分发层** | Typosquatting | — | JFrog/RL |
-| | Platform Breach（如 Smithery 凭证泄露） | — | 已发生事件 |
-| | Namespace Reuse（GitHub OAuth namespace） | — | 类比 HF |
+| 类别 | 威胁 | 业内代号 | package | remote | hybrid 增量 |
+|---|---|---|:--:|:--:|---|
+| **A. 元数据层** | Tool Poisoning（TPA） | E001 | ✅ | ✅ | 两侧元数据可不一致 |
+| | Tool Shadowing | E002 | ✅ | ✅ | — |
+| | Prompt Injection in description | E001/E004 | ✅ | ✅ | — |
+| | Hidden Unicode / ANSI Escape | — | ✅ | ✅ | — |
+| | Untrusted Content（外部数据回流） | W011 | ✅ | ✅ | — |
+| **B. 时间维度** | Sleeper Attack | — | 通过版本号触发 | 服务端热替换，无版本号 | 包不动但远程改 |
+| | Rug Pull | — | 后续版本投毒 | targeted response by UA/IP | 包稳定但 remote 投毒 |
+| | Silent Capability Expansion | — | 版本 diff 可见 | 仅快照 diff 可见 | 包/远程 capability 漂移不一致 |
+| **C. 代码层** | Command Injection | CWE-78 | ✅（源码可见） | ❌（无源码，仅黑盒） | package 端可查 |
+| | Path Traversal | CWE-22 | ✅ | ❌ | package 端可查 |
+| | SSRF | CWE-918 | ✅ | ❌ | package 端可查 |
+| | Malware Payload | E006 | ✅ | ❌（除非沙箱观测） | package 端可查 |
+| | Hardcoded Secrets | W008 | ✅ | ❌（远端不暴露代码） | package 端可查 |
+| | Credential Mishandling | W007 | ✅（源码） | 间接（沙箱观察外发） | — |
+| **D. 跨实体关系** | Toxic Flows | ToxicFlows | ✅ | ✅ | 跨 package/remote tool 组合 |
+| | Cross-Server Data Exfiltration | — | ✅ | ✅ | — |
+| **E. 分发层** | Typosquatting | — | ✅（仅包仓库） | ❌ | — |
+| | Platform Breach | — | ✅（registry） | ✅（hosting） | 两侧都可被攻陷 |
+| | Namespace Reuse | — | ✅ | ❌ | — |
+| **F. Remote 独有** | Targeted Response（按 UA/IP 返回不同响应） | — | ❌ | ✅ | 仅 remote 路径 |
+| | TLS Fingerprint Drift | — | ❌ | ✅ | — |
+| | Server-side Hot-swap of Tools | — | ❌ | ✅ | — |
+| **G. Hybrid 独有** | Package vs Live-Response Divergence | — | — | — | ✅（核心 hybrid 检测） |
 
 ---
 
@@ -132,6 +136,55 @@ status: v2.0
 3. **置信度分层**：每个 Finding 携带 detector / signal / confidence 三元组，利于聚合。
 4. **可解释性优先**：LLM 用于压缩与判别，最终 Verdict 必须可追溯到具体规则与证据。
 5. **协议层一等公民**：Remote Server 检测与 Package 检测对等，不作为附属。
+6. **按 kind 分流**：所有 detector 必须声明适用 `kind ∈ {package, remote, hybrid}`；orchestrator 据此路由，不让"不适用"的 detector 误跑。
+
+### 1.2 按 kind 的检测路径分流
+
+**问题**：Package server（npm/PyPI/Docker tarball 下载到本地运行）和 Remote server（URL 托管，仅暴露 MCP 协议端点）的可观测面**不同**。Package 有源码、依赖图、manifest、版本号；Remote 没有源码、可服务端热替换、可针对不同 client 返回不同响应（targeted attack）。两类必须分别有等价但不同的检测链。Hybrid（同一个 server 既发布包又托管远程）需要在两条链跑完后做**一致性交叉**。
+
+**分流图**：
+
+```
+                   ┌─ kind = package ──→ L2(全套：源码 SAST/SCA/secret/manifest)
+                   │                      L3(全套：含 schema-code 一致性，需源码)
+                   │                      L4(版本 diff)
+                   │                      L5(沙箱内安装+运行)
+                   │                                                            ─┐
+ScanTarget ──L1──┤                                                              ├──L6
+                   │                                                            ─┤
+                   ├─ kind = remote ───→ L2'(响应文本 SAST：对 tools/list / resources/list / prompts/list 的 description / schema 跑文本规则)
+                   │                      L3'(去掉 schema-code 一致性；保留 char/TPA/shadowing/toxic-flow/untrusted；新增 schema-behavior 一致性，需 L5 协助)
+                   │                      L4'(快照 diff：跨 UA/IP 一致性 + 时序 diff + TLS fp)
+                   │                      L5'(在线探测，不安装)
+                   │
+                   └─ kind = hybrid ───→ 上述两条独立并跑 + Hybrid 一致性 detector：
+                                          - tools/list（live） vs tools 声明（package 源码静态抽取）
+                                          - declared egress（package manifest） vs observed egress（remote 沙箱）
+                                          - description 文本（package README） vs description 字段（live response）
+```
+
+**Detector 适用矩阵**（每个 detector 在自己章节内会再次声明 `applies_to`）：
+
+| Detector | package | remote | hybrid |
+|---|:--:|:--:|:--:|
+| L2: code SAST (Semgrep/CodeQL) | ✅ | ❌ | package 侧 |
+| L2: SCA (OSV/audit) | ✅ | ❌ | package 侧 |
+| L2: secret scan | ✅ | ❌ | package 侧 |
+| L2: manifest audit | ✅ | ❌ | package 侧 |
+| L2': remote-response text SAST（新增，§4.5） | ❌ | ✅ | remote 侧 |
+| L3: char-layer / TPA-text / TPA-LLM | ✅ | ✅ | 双侧 |
+| L3: shadowing | ✅ | ✅ | 双侧 |
+| L3: toxic-flow | ✅ | ✅ | 双侧 |
+| L3: untrusted-content | ✅ | ✅ | 双侧 |
+| L3: schema-code 一致性（§5.3） | ✅ | ❌ | package 侧 |
+| L3': schema-behavior 一致性（新增，§5.6，依赖 L5） | ❌ | ✅ | remote 侧 |
+| L4: package version diff | ✅ | ❌ | package 侧 |
+| L4: remote snapshot diff | ❌ | ✅ | remote 侧 |
+| L4: hybrid divergence（新增，§6.5） | ❌ | ❌ | ✅ |
+| L5: 沙箱安装+运行 | ✅ | ❌ | package 侧 |
+| L5': 在线协议探测 | ❌ | ✅ | remote 侧 |
+
+**Orchestrator 路由约定**：每个 detector 实现声明 `applies_to: set[Kind]`；调度器读取 `servers.kind` 后过滤，不适用直接跳过、不写 finding，也不计入"未运行"告警。Hybrid kind 等价于"path=package 集合 ∪ path=remote 集合 ∪ §6.5 的 hybrid-only detector"。
 
 ---
 
@@ -375,6 +428,8 @@ def resolve_canonical(record: SourceRecord) -> CanonicalId:
 
 ## 4. L2 — 静态分析层
 
+> **适用 kind**：§4.1–§4.4 仅适用 `kind=package`（需要源码 / artifact / manifest）。Remote server 走 §4.5 的等价路径。Hybrid 在 package 侧跑 §4.1–§4.4，在 remote 侧跑 §4.5，再交由 §6.5 hybrid 一致性 detector 交叉。
+
 ### 4.1 子模块矩阵
 
 | 子模块 | 工具 | 检测目标 |
@@ -539,6 +594,27 @@ def llm_code_review(finding: Finding, code_context: CodeContext) -> Verdict:
 | `publishConfig.registry` 指向私有 registry | 信息 |
 | `keywords` 含 mcp 但代码中无 MCP SDK 引入 | 可疑（伪 MCP 包） |
 
+### 4.5 Remote Server 响应静态分析（remote 等价路径）
+
+**适用 kind**：`remote`、`hybrid`（remote 侧）。
+
+**输入**：`remote_snapshots` 表中最新的 `tools / resources / prompts` JSON 响应，以及 `server_info`（不是源码 — remote 没有源码）。
+
+**子模块**（与 §4.1 对应）：
+
+| 子模块 | 等价做法 | 说明 |
+|---|---|---|
+| 代码 SAST → **响应文本 SAST** | 复用 §4.2 的 Semgrep 文本规则 + 从 Cisco YARA 翻译的规则，作用对象切换为 tool description / schema 中的字符串字面量、resource URI 模板、prompt 模板 | 检测 prompt-injection / coercive-injection / credential-harvesting / data-exfiltration / system-manipulation 等文本模式（这些规则原本就是文本 regex，对响应同样适用） |
+| 依赖 SCA | ❌ 不适用 | Remote 无 artifact，无依赖图 |
+| 密钥扫描 → **响应密钥扫描** | TruffleHog / Gitleaks 跑在响应文本上 | 检测响应里硬编码的 API key / token（罕见但出现过） |
+| 配置审计 → **server_info 审计** | 自研 jsonschema 规则跑在 `initialize` 响应的 `server_info` / `capabilities` | 检测声明 capability 与实际 tools/list 不一致、protocol version 异常 |
+| 依赖声誉 | ❌ 不适用 | — |
+| 混淆代码检测 → **响应混淆检测** | entropy 跑在 description / schema 字符串 | 检测 hidden Unicode / Base64 payload / 异常长字符串 |
+
+**Finding 落库**：`findings(layer='static_analysis', detector='remote-text:<rule>', artifact_ref='snapshot:<probed_at>:<probe_ua>')`，与 package 的 `artifact_ref='pkg:<registry>:<version>'` 区分。
+
+**实现位置**：`src/mcp_threat_analysis/static_analysis/analyzers/remote_response_analyzer.py`（新增）。复用 `SemgrepAnalyzer` 的 rule loader，输入从 `WorkDir` 改为 `RemoteSnapshot`。
+
 ---
 
 ## 5. L3 — 语义 / LLM 分析层
@@ -683,6 +759,8 @@ def detect_tool_shadowing():
 
 ### 5.3 Schema-Code 一致性判别（差异化检测）
 
+> **适用 kind**：仅 `package` 与 `hybrid` 的 package 侧。Remote 无源码，不能跑 schema-code；其等价物是 §5.6 schema-behavior 一致性。
+
 **问题定义**：tool description 描述了功能 X，实际代码实现了功能 X+Y。Y 即为隐藏副作用。
 
 **架构借鉴**：参考 Cisco `mcp-scanner` 的 `BehavioralCodeAnalyzer` 组件拆分（Apache-2.0）：
@@ -803,11 +881,55 @@ def check_untrusted_handling(tool):
         emit_finding(detector="W011-untrusted-content")
 ```
 
+### 5.6 Schema-Behavior 一致性（remote 等价物）
+
+> **适用 kind**：仅 `remote` 与 `hybrid` 的 remote 侧。
+
+**问题定义**：与 §5.3 同构 —— tool description 声明做 X，实际行为做 X+Y。但 Remote 无源码，"实际行为"必须由 L5 的在线探测/沙箱观察提供（外发域名、读写资源、调用副作用）。
+
+**输入**：
+- 来自 §4.5 的 tool description / input schema（声明面）
+- 来自 §7 L5' 的 in-vivo 观测：`observed_egress_domains` / `observed_resource_reads` / `observed_side_effects`（行为面）
+
+**对比规则**：
+
+```python
+def schema_behavior_check(tool, observation):
+    declared = llm_extract_capabilities(tool.description, tool.input_schema)
+    actual   = observation.summarize()    # L5' 提供
+    delta    = actual - declared
+    if delta.has_unexpected_egress() or delta.has_unexpected_writes():
+        emit_finding(
+            detector="llm:schema-behavior-inconsistency",
+            severity="critical",
+            evidence={"declared": declared, "observed": actual, "delta": delta},
+        )
+```
+
+**与 §5.3 的差异**：
+- §5.3 的 ground truth 是源码 AST 抽取的 `IOSummary`（静态、确定性）
+- §5.6 的 ground truth 是沙箱观察（动态、需要触发覆盖率）；因此 §5.6 finding 的 confidence 上限**绑定 L5' 的覆盖率**，不能像 §5.3 那样做硬断言
+
+### 5.7 检测项 × kind 适用矩阵（L3 小结）
+
+| 子模块 | package | remote | hybrid |
+|---|:--:|:--:|:--:|
+| 5.1 char-layer / TPA-text / TPA-LLM | ✅ | ✅ | 双侧 |
+| 5.2 shadowing | ✅ | ✅ | 双侧（按 canonical_name 跨 kind 去重） |
+| 5.3 schema-code 一致性 | ✅ | ❌ | package 侧 |
+| 5.4 toxic-flow | ✅ | ✅ | 双侧 |
+| 5.5 untrusted content | ✅ | ✅ | 双侧 |
+| 5.6 schema-behavior 一致性 | ❌ | ✅ | remote 侧 |
+
 ---
 
 ## 6. L4 — 时间维度与行为漂移分析
 
+> **适用 kind**：§6.1 仅 `package`，§6.2 仅 `remote`，§6.3 仅有 GitHub repo 的 server（多数 package、少数 remote），§6.4 仅 `package`，§6.5（新增）仅 `hybrid`。
+
 ### 6.1 Package 版本 Diff（核心子模块）
+
+> 适用 kind：`package` | `hybrid`（package 侧）
 
 ```python
 def analyze_version_delta(old_ver: PackageVersion, new_ver: PackageVersion) -> Delta:
@@ -854,6 +976,8 @@ def analyze_version_delta(old_ver: PackageVersion, new_ver: PackageVersion) -> D
 | `tool description 静默修改 + 含 prompt injection 指纹` | critical |
 
 ### 6.2 Remote Server 行为快照 Diff
+
+> 适用 kind：`remote` | `hybrid`（remote 侧）
 
 **问题**：Remote Server 没有版本号，作者可服务端热替换；甚至可针对不同 client UA / IP 返回不同响应（targeted attack）。
 
@@ -916,6 +1040,8 @@ def analyze_commit_stream(repo: GitHubRepo):
 
 ### 6.4 Namespace Reuse 监控
 
+> 适用 kind：`package`（仅适用于发布到 registry / GitHub-namespaced 的 server）
+
 类比 HuggingFace Model Namespace Reuse（Unit 42 研究）：
 
 ```python
@@ -944,9 +1070,54 @@ def monitor_namespace_lifecycle():
                 )
 ```
 
+### 6.5 Hybrid 一致性 Diff（hybrid-only）
+
+> 适用 kind：仅 `hybrid`
+
+**问题定义**：同一个 canonical server 既以 package 形式发布、又以 remote URL 托管。攻击者可能在某一侧投毒（典型："包稳定可审计、远程动态投毒"或反之）。需要做**两侧物料的交叉一致性 diff**。
+
+**对比维度**：
+
+| 维度 | package 侧来源 | remote 侧来源 | diff 信号 |
+|---|---|---|---|
+| tools 列表 | package 源码静态抽取的 `@tool` 注册 | live `tools/list` 响应 | 工具集合不一致：remote 多出 / 少 / 重命名 |
+| tool description | package README + 源码 docstring | live tools/list 的 description | 文本差异比例 > 阈值 |
+| input schema | 源码静态推断 + 显式 schema | live response 的 `inputSchema` | 字段集合或类型不一致 |
+| 声明 egress | manifest `network` / 源码静态 URL 抽取 | L5' 在线观察的实际 egress | 远程访问了未在 package manifest 声明的域 |
+| capabilities | package 静态分析（resources/prompts 注册） | live `initialize` 响应 | capability 不一致 |
+
+**实现**：
+
+```python
+def hybrid_divergence_check(server: Server):
+    if server.kind != "hybrid":
+        return
+    pkg_view    = load_package_static_view(server)   # 来自 §4.1–§4.4
+    remote_view = load_remote_live_view(server)      # 来自 §4.5 + §6.2 最新快照
+    for dim in ["tools_set", "descriptions", "schemas", "egress", "capabilities"]:
+        delta = diff_views(pkg_view, remote_view, dim)
+        if delta.is_significant():
+            emit_finding(
+                detector=f"hybrid:divergence:{dim}",
+                severity=severity_from_delta(dim, delta),
+                evidence=delta.evidence(),
+            )
+```
+
+**关键告警**：
+- `hybrid:divergence:tools_set` → critical（远端工具集与发布的包不一致 = 服务端投毒强证据）
+- `hybrid:divergence:egress` → high（远端调用了未声明的域）
+- `hybrid:divergence:descriptions` 仅 readme 排版差异 → info
+- `hybrid:divergence:descriptions` 含 prompt-injection 指纹差异 → critical
+
 ---
 
 ## 7. L5 — 动态沙箱与协议 Fuzzing
+
+> **L5 vs L5'**：
+> - **L5（package）**：在沙箱里安装并运行 server（artifact 已下载到本地）。可观察进程、syscall、文件访问、网络出入栈、TLS 握手等全栈信号。
+> - **L5'（remote）**：不安装、不下载，仅作为 MCP client 在线探测远程端点。可观察的只是协议层（tools/list / 调用响应 / TLS 指纹 / 时序），无法看到对端进程内行为。许多 L5 信号（syscall、未声明 egress 的"调用方"）在 L5' 里**等价物只能从客户端侧推断**（例如：通过 tool 调用响应里出现的非法外部 URL 推断对端发了出站请求）。
+> - **Hybrid**：两条都跑，并把双侧观测交给 §6.5 hybrid 一致性 detector。
 
 ### 7.1 沙箱选型
 
@@ -1040,12 +1211,25 @@ SEVERITY_WEIGHTS = {
 }
 
 DETECTOR_WEIGHTS = {
-    "L2:semgrep": 1.0,
-    "L3:llm-tpa": 1.5,        # LLM 检测加权
-    "L3:schema-code": 2.0,    # 一致性检测最重
-    "L4:version-diff": 2.0,
-    "L4:remote-targeted": 3.0,# 定向响应攻击最高权
-    "L5:dynamic-egress": 2.5,
+    "static:semgrep": 1.0,
+    "static:remote-text": 1.0,           # §4.5 远程响应文本 SAST
+    "semantic:tpa-llm": 1.5,             # LLM 检测加权
+    "semantic:schema-code": 2.0,         # 一致性检测最重（package）
+    "semantic:schema-behavior": 2.0,     # §5.6 远程等价物
+    "runtime:version-diff": 2.0,
+    "runtime:remote-targeted": 3.0,      # 定向响应攻击最高权
+    "runtime:hybrid-divergence": 3.0,    # §6.5 双侧不一致
+    "network:dynamic-egress": 2.5,
+}
+
+# 按 server kind 调整：remote 类 detector 命中通常意味着更高的"主动可控攻击面"，
+# 因为攻击者可以热替换响应；hybrid 在双侧不一致时危险性最高。
+KIND_FACTORS = {
+    ("remote",  "runtime:remote-targeted"):    1.5,   # 远程定向响应再放大
+    ("remote",  "runtime:tool-drift"):         1.3,
+    ("hybrid",  "runtime:hybrid-divergence"):  1.5,   # hybrid 双侧不一致
+    ("package", "runtime:version-diff"):       1.0,
+    # 其它默认 1.0
 }
 
 def aggregate_risk(server: Server) -> float:
@@ -1054,7 +1238,8 @@ def aggregate_risk(server: Server) -> float:
     for f in findings:
         sw = SEVERITY_WEIGHTS[f.severity]
         dw = DETECTOR_WEIGHTS.get(f.detector_class, 1.0)
-        score += sw * dw * f.confidence
+        kf = KIND_FACTORS.get((server.kind, f.detector_class), 1.0)
+        score += sw * dw * kf * f.confidence
     # 上下文调整
     score *= popularity_factor(server)  # 高使用量放大风险
     return min(100.0, score)
@@ -1074,15 +1259,28 @@ def aggregate_risk(server: Server) -> float:
 ```python
 def cross_source_validation(server: Server) -> ConfidenceBoost:
     # 同一 finding 被多个 detector 命中 → confidence 提升
-    # 例如：L3 检测出 schema-code 不一致 + L4 沙箱观察到未声明外发 → 极高置信度
     boosts = []
-    if has_finding(server, "L3:schema-code-inconsistent") and \
-       has_finding(server, "L5:dynamic-egress"):
+
+    # package 路径：源码声明 vs 沙箱实际行为
+    if has_finding(server, "semantic:schema-code-inconsistent") and \
+       has_finding(server, "network:dynamic-egress"):
         boosts.append(("schema_code_corroborates_egress", 0.3))
 
-    if has_finding(server, "L4:version-diff:bcc-pattern") and \
-       has_finding(server, "L5:dynamic-egress"):
+    # postmark 模式（package 投毒经典）
+    if has_finding(server, "runtime:version-diff:bcc-pattern") and \
+       has_finding(server, "network:dynamic-egress"):
         boosts.append(("postmark-style", 0.5))
+
+    # remote 路径：声明 vs 在线观测
+    if has_finding(server, "semantic:schema-behavior-inconsistent") and \
+       has_finding(server, "runtime:remote-targeted"):
+        boosts.append(("remote_schema_behavior_plus_targeted", 0.4))
+
+    # hybrid 路径：双侧不一致 + 任一侧观测到异常 = 极高置信
+    if has_finding(server, "runtime:hybrid-divergence:tools_set") and \
+       (has_finding(server, "network:dynamic-egress") or
+        has_finding(server, "runtime:remote-targeted")):
+        boosts.append(("hybrid_two_sided_corroboration", 0.6))
 
     return boosts
 ```
@@ -1263,20 +1461,3 @@ finding → P0/P1 队列 → 安全研究员人工 review →
   }
 }
 ```
-
----
-
-## 14. 相关笔记
-
-- [[Research & Learning/Agent 安全/供应链安全/恶意 MCP Server 公开案例分析]]
-- [[Research & Learning/Agent 安全/供应链安全/HuggingFace 恶意模型系统性梳理]]
-- [[Research & Learning/Agent 安全/供应链安全/Agent 供应链安全系统性研究]]
-- [[Research & Learning/Agent 安全/MCP威胁分析/MCPTox A Benchmark for Tool Poisoning Attack on Real-World MCP Servers]]
-- [[Research & Learning/Agent 安全/MCP威胁分析/State of MCP Server Security 2025 Research Report]]
-- [[Research & Learning/Agent 安全/MCP威胁分析/Snyk_调研分析报告]]
-- [[Research & Learning/Agent 安全/MCP威胁分析/snykagent-scan Security scanner for AI agents, MCP servers and agent skills.]]
-
----
-
-> v2.0 · 2026-04-23 · 根据"全网检测、技术实现"的定位重写。
-> v2.1 · 2026-04-24 · 吸收 Cisco `mcp-scanner` 开源资产（规则、LLM prompt、BehavioralCodeAnalyzer 组件拆分），明确"吸收非同类 scanner 资产、直接集成非同类工具"的工具链集成原则。Cisco YARA 规则翻译为 Semgrep 规则，L2 统一使用 Semgrep 单引擎执行代码与文本模式匹配。

@@ -6,35 +6,35 @@ rules:
     languages: [generic]
     paths:
       include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
-    pattern-regex: |
+    pattern-regex: |-
       (?i)\b(also|additionally|furthermore|moreover|besides|in\s+addition|at\s+the\s+same\s+time)\s+(collect|gather|extract|send|upload|index|store|cache|log|monitor|track|record|capture)(s|ing|ed)?
     message: "Tool poisoning: hidden secondary action language"
     severity: WARNING
     metadata:
       issue_code: E001
-      confidence: 0.65
+      confidence: "0.65"
       threat_type: TOOL_POISONING
   - id: tool-poisoning-during-action
     languages: [generic]
     paths:
       include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
-    pattern-regex: |
+    pattern-regex: |-
       (?i)\b(during|while|when|upon|after)\s+(processing|compression|formatting|conversion|validation|analyzing|scanning|checking)\s*,?\s*(extract|collect|send|upload|capture|log|index|store)(s|ing|ed)?
     message: "Tool poisoning: action hidden inside a benign step"
     severity: WARNING
     metadata:
       issue_code: E001
-      confidence: 0.65
+      confidence: "0.65"
       threat_type: TOOL_POISONING
   - id: tool-poisoning-secretly
     languages: [generic]
     paths:
       include: ["*.py", "*.ts", "*.js", "*.go", "*.json", "*.md"]
-    pattern-regex: |
+    pattern-regex: |-
       (?i)\b(actually|really|secretly|covertly|silently)\s+(does|performs?|executes?|runs?|sends?|uploads?|collects?)
     message: "Tool poisoning: deceptive functionality language"
     severity: ERROR
     metadata:
       issue_code: E001
-      confidence: 0.85
+      confidence: "0.85"
       threat_type: TOOL_POISONING

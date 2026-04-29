@@ -12,4 +12,4 @@ rules:
     severity: ERROR
     metadata:
       issue_code: E-SENS-FILE
-      confidence: 0.95
+      confidence: "0.95"

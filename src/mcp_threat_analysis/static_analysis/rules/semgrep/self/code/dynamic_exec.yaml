@@ -8,7 +8,7 @@ rules:
     severity: ERROR
     metadata:
       issue_code: CWE-95
-      confidence: 0.85
+      confidence: "0.85"
   - id: mcp-tool-dynamic-exec-js
     pattern-either:
       - pattern: eval($CODE)
@@ -20,4 +20,4 @@ rules:
     severity: ERROR
     metadata:
       issue_code: CWE-95
-      confidence: 0.85
+      confidence: "0.85"

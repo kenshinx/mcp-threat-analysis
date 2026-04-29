@@ -8,7 +8,7 @@ rules:
     severity: ERROR
     metadata:
       issue_code: E-OBFUSCATION
-      confidence: 0.95
+      confidence: "0.95"
   - id: mcp-obfuscated-base64-exec-js
     pattern-either:
       - pattern: eval(atob($S))
@@ -18,4 +18,4 @@ rules:
     severity: ERROR
     metadata:
       issue_code: E-OBFUSCATION
-      confidence: 0.95
+      confidence: "0.95"
