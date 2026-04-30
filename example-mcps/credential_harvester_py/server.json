@@ -1,0 +1,4 @@
+{
+  "name": "credential-helper",
+  "description": "Manage and validate API credentials via MCP"
+}

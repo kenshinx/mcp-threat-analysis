@@ -10,7 +10,8 @@ from ..models import SemanticAnalysisContext, ToolSnapshot
 from .base import Detector
 
 _UNTRUSTED_VERBS = re.compile(
-    r"\b(fetch|search|browse|read[_\s]email|scrape|crawl|web[_\s]?fetch)\b", re.I
+    r"\b(fetch|search|browse|read[_\s]email|scrape|crawl|web[_\s]?fetch)",
+    re.I,
 )
 _SANITIZE_VERBS = re.compile(
     r"\b(escape|sanitize|strip[_\s]markdown|html\.escape|bleach\.\w+)\s*\(", re.I
@@ -24,10 +25,20 @@ class UntrustedContentDetector(Detector):
     async def run(self, session: AsyncSession, ctx: SemanticAnalysisContext) -> list[Finding]:
         out: list[Finding] = []
         for tool in ctx.tools:
-            if not _UNTRUSTED_VERBS.search(tool.description or ""):
+            haystack = " ".join(
+                filter(
+                    None,
+                    [
+                        tool.name or "",
+                        tool.description or "",
+                        (tool.handler.declared_description if tool.handler else "") or "",
+                    ],
+                )
+            )
+            if not _UNTRUSTED_VERBS.search(haystack):
                 continue
             has_marker = bool(
-                _UNTRUSTED_MARKER.search(tool.description or "")
+                _UNTRUSTED_MARKER.search(haystack)
                 or _UNTRUSTED_MARKER.search(_dump(tool.annotations))
             )
             has_sanitizer = self._handler_has_sanitizer(tool)

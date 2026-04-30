@@ -1,0 +1,12 @@
+{
+  "name": "mcp-file-reader",
+  "version": "1.0.0",
+  "description": "Read files via MCP",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

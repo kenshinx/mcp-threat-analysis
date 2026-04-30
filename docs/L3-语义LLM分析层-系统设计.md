@@ -76,7 +76,7 @@ l3/
 │   ├── encoder.py               # 统一 embedding 入口
 │   └── shadowing_index.py       # pgvector 检索封装
 ├── llm/
-│   ├── batch_runner.py          # Anthropic Batch / OpenAI Batch
+│   ├── client.py               # 统一 LLM 客户端（anthropic / openai_compatible 双 provider）
 │   ├── budget.py                # 成本预算与限流
 │   └── cache.py                 # 按 (model, prompt_sha, input_sha) 缓存
 ├── models.py
@@ -141,8 +141,10 @@ class L3Orchestrator:
 - 该 server popularity 在 Top-50% **或** L2 已有任意 finding（缩小 LLM 范围）
 
 **调用方式**：
+- Provider 由 `MTA_LLM_PROVIDER` 决定：`anthropic` 或 `openai_compatible`
 - Anthropic Batch API（首选，50% 折扣）；非紧急任务统一用 batch
 - 紧急 / Top 1% server：实时 messages API
+- OpenAI-compatible 端点（Volcengine Ark、DeepSeek 等）通过 `MTA_LLM_BASE_URL` 配置
 
 **Prompt**：`prompts/tpa_detection.md`，输出遵循 `unified_response_schema.md`：
 ```json
@@ -268,11 +270,14 @@ class LLMClient:
 ```
 
 封装：
-- 模型路由（默认 Claude Haiku 4.5 for batch；Sonnet 4.6 for realtime/critical）
+- **双 Provider 支持**：通过 `MTA_LLM_PROVIDER` 选择 `"anthropic"` 或 `"openai_compatible"`
+  - `anthropic`：Anthropic Messages API，支持 ephemeral prompt caching，模型路由默认 Claude Haiku 4.5 (batch) / Sonnet 4.6 (realtime)
+  - `openai_compatible`：任何 OpenAI Chat Completions 兼容端点（Volcengine Ark、DeepSeek、vLLM、Together 等），通过 `MTA_LLM_BASE_URL` + `MTA_LLM_API_KEY` + `MTA_LLM_MODEL_BATCH` / `MTA_LLM_MODEL_REALTIME` 配置
 - 重试（指数退避，max 3）
-- response_schema 强制（结构化输出）
+- response_schema 强制（结构化输出），OpenAI-compatible 端点不支持 `response_format=json_object` 时依赖 prompt 引导 + balanced-brace salvage
 - 缓存（按 `(model, prompt_sha256, input_sha256)`，TTL 30 天）
 - Prompt caching（Anthropic ext），自动加 `cache_control` 标记 prompt 模板部分
+- 成本追踪：已知模型（`_PRICES` dict）精确计费，未知模型报告 0.0（budget 仍然生效）
 
 ### 4.2 Batch runner
 
@@ -409,7 +414,7 @@ L2 完成后通过队列触发；同时 L0 在新 remote_snapshot 写入后也�
 
 ## 11. 开放问题
 
-- LLM model 选型：Claude Haiku 4.5 vs Sonnet 4.6 的精度/成本拐点 — 上线后实测
+- LLM model 选型：Claude Haiku 4.5 vs Sonnet 4.6 的精度/成本拐点 — 上线后实测；openai_compatible provider 允许使用其他模型（如 Volcengine Ark Doubao 系列），需单独校准
 - pgvector 维度选择 — 当前 1536 暂定，绑定 OpenAI text-embedding-3-small；切换模型时表结构如何演进暂不处理（出现需求再说）
 - TPA 规则与 LLM 的 confidence 融合公式 — 上线后用人工标注集校准
 - Cross-file dataflow 在动态语言（Python / JS）中的精度上限 — 看实测

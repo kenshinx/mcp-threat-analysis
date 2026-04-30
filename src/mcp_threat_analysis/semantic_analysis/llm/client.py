@@ -1,11 +1,15 @@
-"""Anthropic-backed LLM client used by all semantic_analysis detectors.
+"""LLM client used by all semantic_analysis detectors.
 
-Behaviors:
-- Realtime path uses the Messages API directly.
-- Batch path enqueues to an in-memory batch runner and resolves later.
-- Output is forced to a JSON object; client returns the parsed dict.
-- Prompt caching: if `cache_breakpoint` is True, the prompt template
-  receives Anthropic ephemeral cache_control on the system block.
+Supports two providers, selected via `MTA_LLM_PROVIDER`:
+- "anthropic"          → Anthropic Messages API with ephemeral prompt cache
+- "openai_compatible"  → any endpoint speaking the OpenAI Chat Completions
+                         API (OpenAI itself, Volcengine Ark, DeepSeek, vLLM,
+                         Together, …). Configure via MTA_LLM_BASE_URL +
+                         MTA_LLM_API_KEY + MTA_LLM_MODEL_*.
+
+Output is forced to JSON; the response is parsed and returned as a dict.
+Cost is tracked when the model id is known to `_PRICES`; otherwise reported
+as 0.0 (caller's budget still applies, just not metered).
 """
 from __future__ import annotations
 
@@ -43,8 +47,8 @@ class LLMResponse:
     cache_hit: bool
 
 
-# Prices in USD per 1M tokens; rough defaults — refresh as Anthropic updates.
-_PRICES = {
+# USD per 1M tokens (input, output). Unknown models report 0.0 cost.
+_PRICES: dict[str, tuple[float, float]] = {
     "claude-haiku-4-5-20251001": (1.0, 5.0),
     "claude-sonnet-4-6": (3.0, 15.0),
     "claude-opus-4-7": (15.0, 75.0),
@@ -59,18 +63,46 @@ class LLMClient:
     ) -> None:
         self.cache = cache or LLMCache()
         self.budget = budget or Budget()
-        self._client = None  # lazy
+        self._client: Any = None
+        self._provider: str | None = None
 
     def _ensure_client(self):
-        if self._client is None:
-            api_key = get_settings().anthropic_api_key
+        if self._client is not None:
+            return self._client
+        s = get_settings()
+        provider = s.llm_provider
+        if provider == "anthropic":
+            api_key = s.llm_api_key or s.anthropic_api_key
             if not api_key:
-                raise LLMUnavailable("ANTHROPIC_API_KEY not configured")
+                raise LLMUnavailable(
+                    "no API key set (MTA_LLM_API_KEY or ANTHROPIC_API_KEY)"
+                )
             try:
                 from anthropic import AsyncAnthropic
             except ImportError as e:
                 raise LLMUnavailable("anthropic SDK not installed") from e
             self._client = AsyncAnthropic(api_key=api_key)
+        elif provider == "openai_compatible":
+            if not s.llm_api_key:
+                raise LLMUnavailable("MTA_LLM_API_KEY not set")
+            if not s.llm_base_url:
+                raise LLMUnavailable("MTA_LLM_BASE_URL not set")
+            try:
+                from openai import AsyncOpenAI
+            except ImportError as e:
+                raise LLMUnavailable(
+                    "openai SDK not installed (pip install openai)"
+                ) from e
+            self._client = AsyncOpenAI(
+                api_key=s.llm_api_key,
+                base_url=s.llm_base_url,
+            )
+        else:
+            raise LLMUnavailable(
+                f"unknown MTA_LLM_PROVIDER={provider!r}; "
+                "expected 'anthropic' or 'openai_compatible'"
+            )
+        self._provider = provider
         return self._client
 
     @retry(
@@ -89,7 +121,7 @@ class LLMClient:
         max_tokens: int = 1024,
     ) -> LLMResponse:
         s = get_settings()
-        model = s.anthropic_model_realtime if mode == "realtime" else s.anthropic_model_batch
+        model = s.llm_model_realtime if mode == "realtime" else s.llm_model_batch
         cached = self.cache.get(detector, model, prompt, payload)
         if cached is not None:
             return LLMResponse(
@@ -102,29 +134,22 @@ class LLMClient:
                 cache_hit=True,
             )
         client = self._ensure_client()
-        resp = await client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=[
-                {
-                    "type": "text",
-                    "text": prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            messages=[{"role": "user", "content": payload}],
-        )
-        text_blocks = [b.text for b in resp.content if getattr(b, "type", "") == "text"]
-        raw = "".join(text_blocks).strip()
+        if self._provider == "anthropic":
+            raw, in_tokens, out_tokens = await self._call_anthropic(
+                client, model, prompt, payload, max_tokens
+            )
+        else:
+            raw, in_tokens, out_tokens = await self._call_openai_compatible(
+                client, model, prompt, payload, max_tokens
+            )
         parsed = _parse_json(raw)
-        in_tokens = resp.usage.input_tokens
-        out_tokens = resp.usage.output_tokens
         cost = _cost(model, in_tokens, out_tokens)
         await self.budget.consume(detector, cost)
         self.cache.put(detector, model, prompt, payload, parsed)
         log.info(
             "llm.call",
             detector=detector,
+            provider=self._provider,
             model=model,
             tokens_in=in_tokens,
             tokens_out=out_tokens,
@@ -139,6 +164,46 @@ class LLMClient:
             cost_usd=cost,
             cache_hit=False,
         )
+
+    async def _call_anthropic(
+        self, client, model: str, prompt: str, payload: str, max_tokens: int
+    ) -> tuple[str, int, int]:
+        resp = await client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=[
+                {
+                    "type": "text",
+                    "text": prompt,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=[{"role": "user", "content": payload}],
+        )
+        text_blocks = [b.text for b in resp.content if getattr(b, "type", "") == "text"]
+        raw = "".join(text_blocks).strip()
+        return raw, resp.usage.input_tokens, resp.usage.output_tokens
+
+    async def _call_openai_compatible(
+        self, client, model: str, prompt: str, payload: str, max_tokens: int
+    ) -> tuple[str, int, int]:
+        # Many OpenAI-compatible endpoints (Ark, DeepSeek, vLLM) don't accept
+        # response_format=json_object — rely on prompt + balanced-brace salvage.
+        resp = await client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            temperature=0,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": payload},
+            ],
+        )
+        choice = resp.choices[0]
+        raw = (choice.message.content or "").strip()
+        usage = getattr(resp, "usage", None)
+        in_tokens = getattr(usage, "prompt_tokens", 0) or 0
+        out_tokens = getattr(usage, "completion_tokens", 0) or 0
+        return raw, in_tokens, out_tokens
 
 
 def _parse_json(text: str) -> dict[str, Any]:
@@ -160,5 +225,8 @@ def _parse_json(text: str) -> dict[str, Any]:
 
 
 def _cost(model: str, tokens_in: int, tokens_out: int) -> float:
-    in_price, out_price = _PRICES.get(model, (3.0, 15.0))
+    price = _PRICES.get(model)
+    if price is None:
+        return 0.0
+    in_price, out_price = price
     return (tokens_in * in_price + tokens_out * out_price) / 1_000_000

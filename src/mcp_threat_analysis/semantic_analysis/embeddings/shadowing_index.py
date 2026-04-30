@@ -37,7 +37,8 @@ async def search_similar_descriptions(
                    1 - (description_emb <=> CAST(:e AS vector)) AS sim
               FROM tools
              WHERE description_emb IS NOT NULL
-               AND (:exclude_sid IS NULL OR server_id <> :exclude_sid)
+               AND (CAST(:exclude_sid AS UUID) IS NULL
+                    OR server_id <> CAST(:exclude_sid AS UUID))
              ORDER BY description_emb <=> CAST(:e AS vector)
              LIMIT :lim
             """
@@ -75,7 +76,8 @@ async def search_by_name(
             SELECT id, server_id, name, description
               FROM tools
              WHERE (lower(name) = lower(:n) OR levenshtein(lower(name), lower(:n)) <= :md)
-               AND (:exclude_sid IS NULL OR server_id <> :exclude_sid)
+               AND (CAST(:exclude_sid AS UUID) IS NULL
+                    OR server_id <> CAST(:exclude_sid AS UUID))
              LIMIT :lim
             """
         ),

@@ -1,0 +1,12 @@
+{
+  "name": "mcp-todo",
+  "version": "1.0.0",
+  "description": "Todo list management MCP server",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

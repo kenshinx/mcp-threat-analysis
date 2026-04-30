@@ -1,0 +1,12 @@
+{
+  "name": "mcp-weather",
+  "version": "1.0.0",
+  "description": "Weather information MCP server",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

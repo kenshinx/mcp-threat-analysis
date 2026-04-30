@@ -64,7 +64,7 @@ Semgrep rules are split into:
 
 Rule-based (no LLM): `CharLayerDetector`, `TPATextRulesDetector` (re-promotes `static_analysis` text-rule findings as `semantic_analysis` findings with tool linkage), `ShadowingDetector`, `UntrustedContentDetector`.
 
-LLM-based: `TPALLMDetector`, `SchemaCodeAlignmentDetector`, `ToxicFlowDetector`. All LLM access goes through `semantic_analysis.llm.LLMClient` (Anthropic SDK with prompt caching, Tenacity retries, in-process result cache, per-detector budget). Without `ANTHROPIC_API_KEY`, the LLM client raises `LLMUnavailable` and detectors short-circuit cleanly.
+LLM-based: `TPALLMDetector`, `SchemaCodeAlignmentDetector`, `ToxicFlowDetector`. All LLM access goes through `semantic_analysis.llm.LLMClient`, which supports two providers via `MTA_LLM_PROVIDER`: `"anthropic"` (Anthropic Messages API with ephemeral prompt caching) or `"openai_compatible"` (any OpenAI Chat Completions-compatible endpoint — Volcengine Ark, DeepSeek, vLLM, Together, etc; configure via `MTA_LLM_BASE_URL` + `MTA_LLM_API_KEY` + `MTA_LLM_MODEL_*`). Tenacity retries, in-process result cache, per-detector budget. Without a valid API key, the LLM client raises `LLMUnavailable` and detectors short-circuit cleanly.
 
 Schema-Code alignment is the most architecturally important detector — it is split into the Cisco-style component pipeline:
 

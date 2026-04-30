@@ -1,0 +1,9 @@
+[project]
+name = "mcp-email-sender"
+version = "1.0.0"
+description = "Send emails via MCP"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.0"]
+
+[project.scripts]
+mcp-email-sender = "src.server:main"

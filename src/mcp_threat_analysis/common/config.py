@@ -24,9 +24,17 @@ class Settings:
     codeql_timeout_s: int
     artifact_max_bytes: int
 
+    # LLM provider: "anthropic" or "openai_compatible".
+    # openai_compatible covers OpenAI itself and any OpenAI-API-compatible
+    # endpoint (Volcengine Ark, DeepSeek, Together, vLLM, etc).
+    llm_provider: str
+    llm_base_url: str | None
+    llm_api_key: str | None
+    llm_model_batch: str
+    llm_model_realtime: str
+    # Kept for back-compat; only used when llm_provider == "anthropic" and
+    # llm_api_key is unset.
     anthropic_api_key: str | None
-    anthropic_model_batch: str
-    anthropic_model_realtime: str
     embedding_model: str
     embedding_dim: int
 
@@ -55,13 +63,16 @@ def get_settings() -> Settings:
         semgrep_timeout_s=int(os.getenv("MTA_SEMGREP_TIMEOUT", "300")),
         codeql_timeout_s=int(os.getenv("MTA_CODEQL_TIMEOUT", "600")),
         artifact_max_bytes=int(os.getenv("MTA_ARTIFACT_MAX_BYTES", str(200 * 1024 * 1024))),
-        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-        anthropic_model_batch=os.getenv(
+        llm_provider=os.getenv("MTA_LLM_PROVIDER", "anthropic").strip().lower(),
+        llm_base_url=os.getenv("MTA_LLM_BASE_URL") or None,
+        llm_api_key=os.getenv("MTA_LLM_API_KEY") or None,
+        llm_model_batch=os.getenv(
             "MTA_LLM_MODEL_BATCH", "claude-haiku-4-5-20251001"
         ),
-        anthropic_model_realtime=os.getenv(
+        llm_model_realtime=os.getenv(
             "MTA_LLM_MODEL_REALTIME", "claude-sonnet-4-6"
         ),
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         embedding_model=os.getenv("MTA_EMBEDDING_MODEL", "text-embedding-3-small"),
         embedding_dim=int(os.getenv("MTA_EMBEDDING_DIM", "1536")),
         llm_daily_budget_usd=float(os.getenv("MTA_LLM_DAILY_BUDGET_USD", "200")),
