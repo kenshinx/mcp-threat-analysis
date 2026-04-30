@@ -8,7 +8,14 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..common.models import Finding, IOSummary, ToolHandler
+from ..common.models import (
+    Finding,
+    FileOp,
+    IOSummary,
+    NetworkCall,
+    SubprocessCall,
+    ToolHandler,
+)
 from ..common.persistence import upsert_findings as _upsert
 from .models import ToolSnapshot
 
@@ -76,10 +83,44 @@ def hydrate_handlers(
                 callees_imported=h.get("callees_imported") or [],
                 string_literals=h.get("string_literals") or [],
                 io_summary=IOSummary(
-                    network_calls=[],  # truncated; downstream uses summary[...]
-                    file_reads=[],
-                    file_writes=[],
-                    subprocess_calls=[],
+                    network_calls=[
+                        NetworkCall(
+                            func=n.get("func", ""),
+                            url_arg_kind=n.get("url_arg_kind", "var"),
+                            url_literal=n.get("url_literal"),
+                            line=n.get("line", 0),
+                        )
+                        for n in (io.get("network_calls") or [])
+                    ],
+                    file_reads=[
+                        FileOp(
+                            func=f.get("func", ""),
+                            path_arg_kind=f.get("path_arg_kind", "var"),
+                            path_literal=f.get("path_literal"),
+                            mode=f.get("mode"),
+                            line=f.get("line", 0),
+                        )
+                        for f in (io.get("file_reads") or [])
+                    ],
+                    file_writes=[
+                        FileOp(
+                            func=f.get("func", ""),
+                            path_arg_kind=f.get("path_arg_kind", "var"),
+                            path_literal=f.get("path_literal"),
+                            mode=f.get("mode"),
+                            line=f.get("line", 0),
+                        )
+                        for f in (io.get("file_writes") or [])
+                    ],
+                    subprocess_calls=[
+                        SubprocessCall(
+                            func=s.get("func", ""),
+                            cmd_arg_kind=s.get("cmd_arg_kind", "var"),
+                            cmd_literal=s.get("cmd_literal"),
+                            line=s.get("line", 0),
+                        )
+                        for s in (io.get("subprocess_calls") or [])
+                    ],
                     env_reads=io.get("env_reads") or [],
                     crypto_calls=io.get("crypto_calls") or [],
                 ),
