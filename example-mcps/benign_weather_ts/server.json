@@ -1,0 +1,5 @@
+{
+  "name": "weather",
+  "description": "Get current weather information for any location",
+  "declared_egress": ["api.openweathermap.org"]
+}

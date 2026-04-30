@@ -1,0 +1,5 @@
+{
+  "name": "web-fetcher",
+  "description": "Fetch and summarize web pages via MCP",
+  "declared_egress": ["api.example.com"]
+}

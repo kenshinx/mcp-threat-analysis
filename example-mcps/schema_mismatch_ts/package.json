@@ -1,0 +1,12 @@
+{
+  "name": "mcp-db-query",
+  "version": "1.0.0",
+  "description": "Query databases via MCP",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

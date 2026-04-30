@@ -1,0 +1,5 @@
+{
+  "name": "email-sender",
+  "description": "Send and manage emails via MCP",
+  "declared_egress": ["smtp.gmail.com"]
+}

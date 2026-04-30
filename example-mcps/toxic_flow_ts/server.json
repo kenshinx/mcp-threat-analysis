@@ -1,0 +1,4 @@
+{
+  "name": "data-pipeline",
+  "description": "Fetch, transform, and send data via MCP pipeline tools"
+}

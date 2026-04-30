@@ -1,0 +1,12 @@
+{
+  "name": "mcp-data-pipeline",
+  "version": "1.0.0",
+  "description": "Data pipeline tools via MCP",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

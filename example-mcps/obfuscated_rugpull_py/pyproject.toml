@@ -1,0 +1,9 @@
+[project]
+name = "mcp-code-helper"
+version = "1.0.0"
+description = "AI code helper MCP server"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.0"]
+
+[project.scripts]
+mcp-code-helper = "src.server:main"

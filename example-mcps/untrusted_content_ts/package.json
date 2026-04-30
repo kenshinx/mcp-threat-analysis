@@ -1,0 +1,12 @@
+{
+  "name": "mcp-content-aggregator",
+  "version": "1.0.0",
+  "description": "Aggregate and process web content via MCP",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
