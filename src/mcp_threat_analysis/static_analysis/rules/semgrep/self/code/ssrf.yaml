@@ -1,20 +1,28 @@
 rules:
   - id: mcp-tool-ssrf-py
-    pattern-either:
-      - pattern: requests.$M($URL, ...)
-      - pattern: urllib.request.urlopen($URL, ...)
-      - pattern: httpx.$M($URL, ...)
-    message: "Possible SSRF — user URL fetched without allowlist"
+    patterns:
+      - pattern-either:
+          - pattern: requests.$M($URL, ...)
+          - pattern: urllib.request.urlopen($URL, ...)
+          - pattern: httpx.$M($URL, ...)
+      - metavariable-regex:
+          metavariable: $URL
+          regex: '^(?![''"](https?)://[a-zA-Z0-9._-]+)'
+    message: "Possible SSRF — non-constant URL fetched without allowlist"
     languages: [python]
     severity: WARNING
     metadata:
       issue_code: CWE-918
       confidence: "0.5"
   - id: mcp-tool-ssrf-js
-    pattern-either:
-      - pattern: fetch($URL, ...)
-      - pattern: axios.$M($URL, ...)
-    message: "Possible SSRF — user URL fetched without allowlist"
+    patterns:
+      - pattern-either:
+          - pattern: fetch($URL, ...)
+          - pattern: axios.$M($URL, ...)
+      - metavariable-regex:
+          metavariable: $URL
+          regex: '^(?![`''"](https?)://[a-zA-Z0-9._-]+)'
+    message: "Possible SSRF — non-constant URL fetched without allowlist"
     languages: [javascript, typescript]
     severity: WARNING
     metadata:

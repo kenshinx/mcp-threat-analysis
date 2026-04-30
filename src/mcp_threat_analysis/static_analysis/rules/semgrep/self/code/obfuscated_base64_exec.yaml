@@ -1,19 +1,26 @@
 rules:
   - id: mcp-obfuscated-base64-exec-py
-    pattern-either:
-      - pattern: exec(base64.b64decode($S))
-      - pattern: exec(base64.b64decode($S).decode())
-    message: "Base64-decoded payload passed to exec — strong obfuscation signal"
+    mode: taint
+    pattern-sources:
+      - pattern: base64.b64decode(...)
+    pattern-sinks:
+      - pattern: exec(...)
+      - pattern: eval(...)
+    message: "Base64-decoded payload reaches exec/eval — strong obfuscation signal"
     languages: [python]
     severity: ERROR
     metadata:
       issue_code: E-OBFUSCATION
       confidence: "0.95"
   - id: mcp-obfuscated-base64-exec-js
-    pattern-either:
-      - pattern: eval(atob($S))
-      - pattern: Function(atob($S))()
-    message: "atob-decoded payload passed to eval/Function"
+    mode: taint
+    pattern-sources:
+      - pattern: atob(...)
+      - pattern: Buffer.from($S, "base64").toString(...)
+    pattern-sinks:
+      - pattern: eval(...)
+      - pattern: Function(...)
+    message: "Base64-decoded payload reaches eval/Function — strong obfuscation signal"
     languages: [javascript, typescript]
     severity: ERROR
     metadata:

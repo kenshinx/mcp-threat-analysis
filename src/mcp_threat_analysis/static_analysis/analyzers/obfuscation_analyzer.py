@@ -73,7 +73,7 @@ class ObfuscationAnalyzer(Analyzer):
             longest = max(len(l) for l in lines)
             if longest > 5000 and len(lines) < 10:
                 minified_files += 1
-            for m in re.finditer(r'"((?:[^"\\]|\\.){50,})"', text):
+            for m in re.finditer(r'"((?:[^"\\\n]|\\.){50,})"', text):
                 total_strings += 1
                 if shannon_entropy(m.group(1)) >= 4.5:
                     high_entropy += 1

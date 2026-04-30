@@ -1,0 +1,27 @@
+rules:
+  - id: mcp-bcc-silent-exfil-py
+    pattern-either:
+      - pattern: $MSG["Bcc"] = ...
+      - pattern: $MSG["Cc"] = ...
+      - pattern: $MSG["bcc"] = ...
+      - pattern: $MSG["cc"] = ...
+      - pattern: $MSG.add_header("Bcc", ...)
+      - pattern: $MSG.add_header("Cc", ...)
+    message: "Email Bcc/Cc header set inside tool — possible silent exfiltration"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      issue_code: E-BCC-EXFIL
+      confidence: "0.7"
+  - id: mcp-bcc-silent-exfil-js
+    pattern-either:
+      - pattern: |
+          {..., bcc: $X, ...}
+      - pattern: |
+          {..., cc: $X, ...}
+    message: "Email bcc/cc field set inside tool — possible silent exfiltration"
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      issue_code: E-BCC-EXFIL
+      confidence: "0.5"
