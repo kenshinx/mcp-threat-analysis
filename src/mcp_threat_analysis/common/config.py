@@ -38,6 +38,7 @@ class Settings:
     embedding_model: str
     embedding_dim: int
 
+    llm_max_concurrency: int
     llm_daily_budget_usd: float
     llm_cache_ttl_days: int
 
@@ -75,6 +76,7 @@ def get_settings() -> Settings:
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         embedding_model=os.getenv("MTA_EMBEDDING_MODEL", "text-embedding-3-small"),
         embedding_dim=int(os.getenv("MTA_EMBEDDING_DIM", "1536")),
+        llm_max_concurrency=int(os.getenv("MTA_LLM_MAX_CONCURRENCY", "0")),
         llm_daily_budget_usd=float(os.getenv("MTA_LLM_DAILY_BUDGET_USD", "200")),
         llm_cache_ttl_days=int(os.getenv("MTA_LLM_CACHE_TTL_DAYS", "30")),
         weights_yaml_path=os.getenv("MTA_L6_WEIGHTS_YAML"),

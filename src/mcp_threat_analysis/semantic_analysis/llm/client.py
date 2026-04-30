@@ -10,9 +10,13 @@ Supports two providers, selected via `MTA_LLM_PROVIDER`:
 Output is forced to JSON; the response is parsed and returned as a dict.
 Cost is tracked when the model id is known to `_PRICES`; otherwise reported
 as 0.0 (caller's budget still applies, just not metered).
+
+Concurrency is bounded by an internal `asyncio.Semaphore` so that parallel
+detectors / tool fan-outs don't exceed provider rate limits.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -55,16 +59,30 @@ _PRICES: dict[str, tuple[float, float]] = {
 }
 
 
+def _default_concurrency(provider: str) -> int:
+    if provider == "anthropic":
+        return 3
+    return 16
+
+
 class LLMClient:
     def __init__(
         self,
         cache: LLMCache | None = None,
         budget: Budget | None = None,
+        max_concurrency: int | None = None,
     ) -> None:
         self.cache = cache or LLMCache()
         self.budget = budget or Budget()
         self._client: Any = None
         self._provider: str | None = None
+        if max_concurrency is not None and max_concurrency > 0:
+            self._sem = asyncio.Semaphore(max_concurrency)
+        else:
+            s = get_settings()
+            self._sem = asyncio.Semaphore(
+                _default_concurrency(s.llm_provider)
+            )
 
     def _ensure_client(self):
         if self._client is not None:
@@ -133,15 +151,16 @@ class LLMClient:
                 cost_usd=0.0,
                 cache_hit=True,
             )
-        client = self._ensure_client()
-        if self._provider == "anthropic":
-            raw, in_tokens, out_tokens = await self._call_anthropic(
-                client, model, prompt, payload, max_tokens
-            )
-        else:
-            raw, in_tokens, out_tokens = await self._call_openai_compatible(
-                client, model, prompt, payload, max_tokens
-            )
+        async with self._sem:
+            client = self._ensure_client()
+            if self._provider == "anthropic":
+                raw, in_tokens, out_tokens = await self._call_anthropic(
+                    client, model, prompt, payload, max_tokens
+                )
+            else:
+                raw, in_tokens, out_tokens = await self._call_openai_compatible(
+                    client, model, prompt, payload, max_tokens
+                )
         parsed = _parse_json(raw)
         cost = _cost(model, in_tokens, out_tokens)
         await self.budget.consume(detector, cost)

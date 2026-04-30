@@ -1,6 +1,7 @@
 """Single-server Toxic Flow pattern detection."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from typing import Any
@@ -45,16 +46,20 @@ CAPABILITY_VOCAB = sorted(
 
 class ToxicFlowDetector(Detector):
     name = "toxic-flow"
+    is_llm = True
 
     def __init__(self, llm: LLMClient | None = None) -> None:
         self.llm = llm or LLMClient()
         self.prompt = load_prompt("tool_capability_classification.md")
 
     async def run(self, session: AsyncSession, ctx: SemanticAnalysisContext) -> list[Finding]:
+        cap_results = await asyncio.gather(
+            *[self._classify(session, tool) for tool in ctx.tools],
+            return_exceptions=True,
+        )
         capabilities: dict[str, list[str]] = {}
-        for tool in ctx.tools:
-            caps = await self._classify(session, tool)
-            capabilities[tool.name] = caps
+        for tool, res in zip(ctx.tools, cap_results):
+            capabilities[tool.name] = [] if isinstance(res, Exception) else res
 
         out: list[Finding] = []
         for pattern in TOXIC_FLOW_PATTERNS:

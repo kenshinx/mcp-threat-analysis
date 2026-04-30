@@ -35,6 +35,11 @@ class SemanticAnalysisConfig:
     enable_llm: bool = True
 
 
+@dataclass(slots=True)
+class SemanticAnalysisConfig:
+    enable_llm: bool = True
+
+
 class SemanticAnalysisOrchestrator:
     def __init__(
         self,
@@ -90,12 +95,28 @@ class SemanticAnalysisOrchestrator:
             t.handler = by_name.get(t.name)
 
     async def _run_detectors(self, session, ctx: SemanticAnalysisContext) -> list[Finding]:
-        results = []
-        for d in self.detectors:
+        results: list[Finding] = []
+        rule_detectors = [d for d in self.detectors if not d.is_llm]
+        llm_detectors = [d for d in self.detectors if d.is_llm]
+
+        for d in rule_detectors:
             try:
                 hits = await d.run(session, ctx)
                 log.info("l3.detector.done", name=d.name, count=len(hits))
                 results.extend(hits)
             except Exception:
                 log.exception("l3.detector.crash", name=d.name)
+
+        if llm_detectors:
+            llm_results = await asyncio.gather(
+                *[d.run(session, ctx) for d in llm_detectors],
+                return_exceptions=True,
+            )
+            for d, res in zip(llm_detectors, llm_results):
+                if isinstance(res, Exception):
+                    log.warning("l3.detector.failed", name=d.name, err=str(res))
+                    continue
+                log.info("l3.detector.done", name=d.name, count=len(res))
+                results.extend(res)
+
         return results

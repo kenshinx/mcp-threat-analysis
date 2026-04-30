@@ -11,6 +11,7 @@ from ..models import SemanticAnalysisContext
 
 class Detector(ABC):
     name: str = "base"
+    is_llm: bool = False
 
     @abstractmethod
     async def run(

@@ -29,6 +29,20 @@ class AlignmentOrchestrator:
     ) -> Finding | None:
         if tool.handler is None:
             return None
+        # Skip when the tool ships no human-facing declaration. With an empty
+        # description and no annotations the LLM has nothing to align the
+        # implementation against and consistently returns critical
+        # "fully undeclared" verdicts on perfectly benign tools (TS fixtures
+        # using the 3-arg server.tool(name, schema, handler) form). The
+        # tool.name + input_schema alone are not a behavioral contract.
+        declared_desc = (tool.description or "").strip()
+        declared_handler_desc = (
+            (tool.handler.declared_description or "").strip() if tool.handler else ""
+        )
+        has_annotations = bool(tool.annotations)
+        if not declared_desc and not declared_handler_desc and not has_annotations:
+            log.info("alignment.skip", tool=tool.name, reason="no declaration")
+            return None
         enriched = self.dataflow.enrich(tool.handler)
         io_summary = self.dataflow.to_summary(enriched)
         try:
@@ -49,11 +63,15 @@ class AlignmentOrchestrator:
         except InvalidAlignmentResponse as e:
             log.warning("alignment.invalid_response", tool=tool.name, reason=str(e))
             return None
-        if verdict.alignment_score > 6:
+        # Tighter than the prompt contract (which calls score<=6 "suspicious").
+        # Empirically, scores 4-6 produced by the current prompt include too
+        # many "minor undeclared field"-class findings on benign tools to be
+        # actionable. Keep only score<=3 (clear behavioral mismatch).
+        if verdict.alignment_score > 3:
             return None
         severity = (
-            "critical" if verdict.alignment_score <= 3
-            else "high" if verdict.alignment_score <= 5
+            "critical" if verdict.alignment_score <= 1
+            else "high" if verdict.alignment_score <= 2
             else "medium"
         )
         return Finding(
