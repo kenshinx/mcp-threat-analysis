@@ -20,6 +20,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from typing import Any, Literal
+from uuid import UUID
 
 from tenacity import (
     retry,
@@ -49,6 +50,7 @@ class LLMResponse:
     tokens_out: int
     cost_usd: float
     cache_hit: bool
+    llm_call_id: UUID | None = None
 
 
 # USD per 1M tokens (input, output). Unknown models report 0.0 cost.
@@ -138,10 +140,23 @@ class LLMClient:
         mode: Literal["realtime", "batch"] = "batch",
         max_tokens: int = 1024,
     ) -> LLMResponse:
+        from ..persistence import insert_llm_call
+
         s = get_settings()
         model = s.llm_model_realtime if mode == "realtime" else s.llm_model_batch
         cached = self.cache.get(detector, model, prompt, payload)
         if cached is not None:
+            llm_call_id = await insert_llm_call(
+                detector=detector,
+                model=model,
+                prompt=prompt,
+                payload=payload,
+                tokens_in=0,
+                tokens_out=0,
+                cost_usd=0.0,
+                status="cache_hit",
+                response_json=cached,
+            )
             return LLMResponse(
                 parsed=cached,
                 raw_text=json.dumps(cached),
@@ -150,21 +165,46 @@ class LLMClient:
                 tokens_out=0,
                 cost_usd=0.0,
                 cache_hit=True,
+                llm_call_id=llm_call_id,
             )
-        async with self._sem:
-            client = self._ensure_client()
-            if self._provider == "anthropic":
-                raw, in_tokens, out_tokens = await self._call_anthropic(
-                    client, model, prompt, payload, max_tokens
-                )
-            else:
-                raw, in_tokens, out_tokens = await self._call_openai_compatible(
-                    client, model, prompt, payload, max_tokens
-                )
+        try:
+            async with self._sem:
+                client = self._ensure_client()
+                if self._provider == "anthropic":
+                    raw, in_tokens, out_tokens = await self._call_anthropic(
+                        client, model, prompt, payload, max_tokens
+                    )
+                else:
+                    raw, in_tokens, out_tokens = await self._call_openai_compatible(
+                        client, model, prompt, payload, max_tokens
+                    )
+        except Exception:
+            await insert_llm_call(
+                detector=detector,
+                model=model,
+                prompt=prompt,
+                payload=payload,
+                tokens_in=0,
+                tokens_out=0,
+                cost_usd=0.0,
+                status="error",
+            )
+            raise
         parsed = _parse_json(raw)
         cost = _cost(model, in_tokens, out_tokens)
         await self.budget.consume(detector, cost)
         self.cache.put(detector, model, prompt, payload, parsed)
+        llm_call_id = await insert_llm_call(
+            detector=detector,
+            model=model,
+            prompt=prompt,
+            payload=payload,
+            tokens_in=in_tokens,
+            tokens_out=out_tokens,
+            cost_usd=cost,
+            status="ok",
+            response_json=parsed,
+        )
         log.info(
             "llm.call",
             detector=detector,
@@ -173,6 +213,7 @@ class LLMClient:
             tokens_in=in_tokens,
             tokens_out=out_tokens,
             cost_usd=cost,
+            llm_call_id=str(llm_call_id),
         )
         return LLMResponse(
             parsed=parsed,
@@ -182,6 +223,7 @@ class LLMClient:
             tokens_out=out_tokens,
             cost_usd=cost,
             cache_hit=False,
+            llm_call_id=llm_call_id,
         )
 
     async def _call_anthropic(

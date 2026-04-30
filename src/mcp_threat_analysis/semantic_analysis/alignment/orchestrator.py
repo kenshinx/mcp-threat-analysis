@@ -87,6 +87,7 @@ class AlignmentOrchestrator:
                 "explanation": verdict.explanation,
                 "io_summary": io_summary,
                 "llm_model": resp.model,
+                "llm_call_id": str(resp.llm_call_id) if resp.llm_call_id else None,
                 "evidence_key": f"alignment:{tool.name}",
             },
             artifact_ref=ctx.artifact_ref,

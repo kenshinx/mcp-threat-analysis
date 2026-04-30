@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..common.db import session_scope
+from ..common.logging import get_logger
 from ..common.models import (
     Finding,
     FileOp,
@@ -17,7 +19,10 @@ from ..common.models import (
     ToolHandler,
 )
 from ..common.persistence import upsert_findings as _upsert
+from .llm.cache import sha as _sha
 from .models import ToolSnapshot
+
+log = get_logger(__name__)
 
 
 async def load_static_summary(
@@ -174,3 +179,76 @@ async def get_cached_capability(
     )
     rec = row.first()
     return list(rec[0]) if rec and rec[0] else None
+
+
+async def insert_llm_call(
+    *,
+    detector: str,
+    model: str,
+    prompt: str,
+    payload: str,
+    tokens_in: int,
+    tokens_out: int,
+    cost_usd: float,
+    status: str,
+    response_json: dict[str, Any] | None = None,
+    llm_call_id: UUID | None = None,
+) -> UUID:
+    """INSERT a row into llm_calls and return its id.
+
+    Opens its own session_scope() so the caller does not need a DB session.
+    Errors are logged but never raised — a failed write must not block the
+    LLM pipeline.
+    """
+    call_id = llm_call_id or uuid4()
+    try:
+        async with session_scope() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO llm_calls
+                      (id, detector, model, prompt_sha, input_sha,
+                       tokens_in, tokens_out, cost_usd, status, response_json)
+                    VALUES
+                      (:id, :det, :model, :psha, :isha,
+                       :tin, :tout, :cost, :status, CAST(:rj AS JSONB))
+                    """
+                ),
+                {
+                    "id": str(call_id),
+                    "det": detector,
+                    "model": model,
+                    "psha": _sha(prompt),
+                    "isha": _sha(payload),
+                    "tin": tokens_in,
+                    "tout": tokens_out,
+                    "cost": cost_usd,
+                    "status": status,
+                    "rj": json.dumps(response_json) if response_json else None,
+                },
+            )
+    except Exception:
+        log.exception("llm_call.persist_failed", detector=detector, model=model)
+    return call_id
+
+
+async def link_llm_calls_to_findings(
+    session: AsyncSession,
+    finding_ids: list[UUID],
+    findings: list[Finding],
+) -> None:
+    """UPDATE llm_calls.finding_id for findings that carry an llm_call_id in evidence."""
+    for fid, finding in zip(finding_ids, findings):
+        llm_call_id = (finding.evidence or {}).get("llm_call_id")
+        if not llm_call_id:
+            continue
+        try:
+            await session.execute(
+                text(
+                    "UPDATE llm_calls SET finding_id = :fid "
+                    "WHERE id = :cid AND finding_id IS NULL"
+                ),
+                {"fid": str(fid), "cid": str(llm_call_id)},
+            )
+        except Exception:
+            log.exception("llm_call.link_failed", llm_call_id=llm_call_id, finding_id=fid)

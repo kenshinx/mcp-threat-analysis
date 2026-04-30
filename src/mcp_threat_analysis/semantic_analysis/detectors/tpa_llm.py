@@ -76,6 +76,7 @@ class TPALLMDetector(Detector):
                 "evidence_quotes": resp.parsed.get("evidence_quotes"),
                 "explanation": resp.parsed.get("explanation"),
                 "llm_model": resp.model,
+                "llm_call_id": str(resp.llm_call_id) if resp.llm_call_id else None,
                 "evidence_key": f"tpa-llm:{tool.name}",
             },
             artifact_ref=ctx.artifact_ref,
