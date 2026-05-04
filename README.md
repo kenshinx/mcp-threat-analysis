@@ -16,7 +16,10 @@ consume their data.
 ```
 docs/                              # Design docs (master + per-layer sub-system)
 sql/                               # Database schema (Postgres + pgvector)
+  001_schema.sql                   # Base schema
+  002_llm_calls_response.sql       # llm_calls.response_json column
 LICENSES/                          # Third-party attribution (Apache-2.0 from Cisco)
+example-mcps/                      # 16 example fixtures (8 malicious + 3 benign + ...)
 src/mcp_threat_analysis/
   common/                          # Shared models, DB engine, logging, subprocess wrapper
   static_analysis/                 # Static analysis layer
@@ -33,7 +36,9 @@ src/mcp_threat_analysis/
     detectors/                     # char_layer, tpa_text_rules, tpa_llm, shadowing,
                                    # schema_code_alignment, toxic_flow, untrusted_content
     alignment/                     # AlignmentOrchestrator + cross-file dataflow
-    llm/                           # Anthropic client, batch runner, budget, cache
+    llm/                           # Provider-pluggable LLM client (Anthropic + OpenAI-compatible),
+                                   # async semaphore concurrency, budget, in-process cache,
+                                   # llm_calls audit-row persistence
     embeddings/                    # encoder + pgvector shadowing index
     prompts/                       # Markdown prompt templates
     orchestrator.py
@@ -47,7 +52,7 @@ src/mcp_threat_analysis/
     popularity.py
     ingestor.py                    # Polling watcher of findings.updated_at
     persistence.py                 # Read-side helpers
-    api/server.py                  # FastAPI: /servers/{id}/risk, /triage, lifecycle
+    api/server.py                  # FastAPI read API + lifecycle POSTs (CORS-enabled)
     cli.py                         # mta-risk
   tests/{static_analysis,semantic_analysis,risk_scoring}/   # Unit tests
 ```
@@ -60,8 +65,11 @@ src/mcp_threat_analysis/
   the binary is missing):
   `semgrep`, `codeql`, `trufflehog`, `gitleaks`, `osv-scanner`, `pip-audit`,
   `npm`
-- An Anthropic API key for `semantic_analysis` LLM detectors (without it, the
-  LLM detectors log a skip and the rules-only detectors still run)
+- An LLM API key for `semantic_analysis` LLM detectors (Anthropic Messages API
+  *or* any OpenAI Chat Completions-compatible endpoint — Volcengine Ark, DeepSeek,
+  vLLM, Together, etc.). Without a valid key the LLM client raises
+  `LLMUnavailable`, the rule-based detectors still run, and the LLM detectors
+  short-circuit cleanly.
 
 ## Setup
 
@@ -81,7 +89,30 @@ psql -d mta -c "CREATE EXTENSION IF NOT EXISTS vector;
                 CREATE EXTENSION IF NOT EXISTS pg_trgm;
                 CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"
 psql -d mta -f sql/001_schema.sql
+psql -d mta -f sql/002_llm_calls_response.sql   # adds llm_calls.response_json
 ```
+
+### LLM provider configuration
+
+The semantic layer's LLM client is provider-pluggable via env vars:
+
+```bash
+# Anthropic Messages API (default)
+MTA_LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Or any OpenAI Chat Completions-compatible endpoint
+MTA_LLM_PROVIDER=openai_compatible
+MTA_LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+MTA_LLM_API_KEY=...
+MTA_LLM_MODEL_PRIMARY=glm-5.1
+MTA_LLM_MODEL_FALLBACK=...
+```
+
+Concurrency caps default to 3 for Anthropic and 16 for OpenAI-compatible
+providers; both can be overridden. Every call (including cache hits and
+errors) is persisted to the `llm_calls` audit table and linked back to its
+finding via `evidence.llm_call_id`.
 
 ## Running
 
@@ -103,8 +134,8 @@ The CLI prints findings as JSON and (unless `--no-persist`) inserts them into
 mta-semantic --server-id <UUID> --version 1.2.3
 ```
 
-If `ANTHROPIC_API_KEY` is unset, only the rule-based detectors
-(`char-layer`, `tpa-text`, `shadowing`, `untrusted-content`) run.
+Without a valid LLM API key, only the rule-based detectors (`char-layer`,
+`tpa-text`, `shadowing`, `untrusted-content`) run.
 
 ### risk_scoring — aggregate one server, or start the polling ingestor
 
@@ -121,11 +152,18 @@ mta-risk ingest
 
 ```bash
 mta-api --port 8080
-# GET  /servers/{id}/risk
+# GET  /healthz
+# GET  /servers                                   # corpus list with risk + active counts
+# GET  /servers/{id}/risk                         # server + top findings
 # GET  /servers/{id}/risk/history
-# GET  /triage?priority=P0
+# GET  /triage?priority=P0&status=pending
+# GET  /findings/{id}                             # finding + linked llm_call + related
+# GET  /corpus/heatmap                            # detector × server matrix
 # POST /findings/{id}/{suppress|confirm|false-positive}
 ```
+
+CORS is enabled for `http://localhost:7137` and `http://localhost:5173` so
+read-only browser clients can consume the API directly.
 
 ## Tests
 
@@ -157,18 +195,3 @@ ScanTarget ──► static_analysis Orchestrator ─┬─► findings (layer=s
                                                      ▼
                                            disclosure (out of scope)
 ```
-
-## Attribution
-
-The Semgrep rules under
-`src/mcp_threat_analysis/static_analysis/rules/semgrep/translated_from_cisco/`
-are direct translations of YARA rules from
-[`cisco-ai-defense/mcp-scanner`](https://github.com/cisco-ai-defense/mcp-scanner)
-(Apache-2.0). See `LICENSES/cisco-mcp-scanner-NOTICE`.
-
-## Documentation
-
-- Master design: [`docs/恶意 MCP 检测可执行技术方案.md`](docs/恶意%20MCP%20检测可执行技术方案.md)
-- Static analysis design: [`docs/静态分析层-系统设计.md`](docs/静态分析层-系统设计.md)
-- Semantic / LLM analysis design: [`docs/语义LLM分析层-系统设计.md`](docs/语义LLM分析层-系统设计.md)
-- Risk scoring design: [`docs/风险聚合评分层-系统设计.md`](docs/风险聚合评分层-系统设计.md)

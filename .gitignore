@@ -18,3 +18,7 @@ mta-workdir/
 # macOS / editor / local agent state
 .DS_Store
 .claude/
+.playwright-mcp/
+
+# Dev artefacts (browser screenshots from prototype QA, etc.)
+screen*.png
