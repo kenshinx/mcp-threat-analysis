@@ -20,6 +20,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from typing import Any, Literal
+from uuid import UUID
 
 from tenacity import (
     retry,
@@ -49,6 +50,7 @@ class LLMResponse:
     tokens_out: int
     cost_usd: float
     cache_hit: bool
+    llm_call_id: UUID | None = None
 
 
 # USD per 1M tokens (input, output). Unknown models report 0.0 cost.
@@ -123,12 +125,6 @@ class LLMClient:
         self._provider = provider
         return self._client
 
-    @retry(
-        retry=retry_if_exception_type(Exception),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=15),
-        reraise=True,
-    )
     async def call(
         self,
         *,
@@ -138,10 +134,23 @@ class LLMClient:
         mode: Literal["realtime", "batch"] = "batch",
         max_tokens: int = 1024,
     ) -> LLMResponse:
+        from ..persistence import insert_llm_call
+
         s = get_settings()
         model = s.llm_model_realtime if mode == "realtime" else s.llm_model_batch
         cached = self.cache.get(detector, model, prompt, payload)
         if cached is not None:
+            llm_call_id = await insert_llm_call(
+                detector=detector,
+                model=model,
+                prompt=prompt,
+                payload=payload,
+                tokens_in=0,
+                tokens_out=0,
+                cost_usd=0.0,
+                status="cache_hit",
+                response_json=cached,
+            )
             return LLMResponse(
                 parsed=cached,
                 raw_text=json.dumps(cached),
@@ -150,19 +159,45 @@ class LLMClient:
                 tokens_out=0,
                 cost_usd=0.0,
                 cache_hit=True,
+                llm_call_id=llm_call_id,
             )
-        async with self._sem:
-            client = self._ensure_client()
-            if self._provider == "anthropic":
-                raw, in_tokens, out_tokens = await self._call_anthropic(
-                    client, model, prompt, payload, max_tokens
-                )
-            else:
-                raw, in_tokens, out_tokens = await self._call_openai_compatible(
-                    client, model, prompt, payload, max_tokens
-                )
-        parsed = _parse_json(raw)
+        try:
+            result = await self._call_with_retry(
+                detector=detector,
+                model=model,
+                prompt=prompt,
+                payload=payload,
+                max_tokens=max_tokens,
+            )
+        except Exception:
+            # All retries exhausted — insert a single error row.
+            await insert_llm_call(
+                detector=detector,
+                model=model,
+                prompt=prompt,
+                payload=payload,
+                tokens_in=0,
+                tokens_out=0,
+                cost_usd=0.0,
+                status="error",
+            )
+            raise
+        raw, in_tokens, out_tokens = result
+        # Persist immediately after the HTTP response returns so that
+        # _parse_json / budget failures below still leave an audit row.
         cost = _cost(model, in_tokens, out_tokens)
+        llm_call_id = await insert_llm_call(
+            detector=detector,
+            model=model,
+            prompt=prompt,
+            payload=payload,
+            tokens_in=in_tokens,
+            tokens_out=out_tokens,
+            cost_usd=cost,
+            status="ok",
+            response_json=None,
+        )
+        parsed = _parse_json(raw)
         await self.budget.consume(detector, cost)
         self.cache.put(detector, model, prompt, payload, parsed)
         log.info(
@@ -173,6 +208,7 @@ class LLMClient:
             tokens_in=in_tokens,
             tokens_out=out_tokens,
             cost_usd=cost,
+            llm_call_id=str(llm_call_id),
         )
         return LLMResponse(
             parsed=parsed,
@@ -182,7 +218,33 @@ class LLMClient:
             tokens_out=out_tokens,
             cost_usd=cost,
             cache_hit=False,
+            llm_call_id=llm_call_id,
         )
+
+    @retry(
+        retry=retry_if_exception_type(Exception),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=15),
+        reraise=True,
+    )
+    async def _call_with_retry(
+        self,
+        *,
+        detector: str,
+        model: str,
+        prompt: str,
+        payload: str,
+        max_tokens: int,
+    ) -> tuple[str, int, int]:
+        async with self._sem:
+            client = self._ensure_client()
+            if self._provider == "anthropic":
+                return await self._call_anthropic(
+                    client, model, prompt, payload, max_tokens
+                )
+            return await self._call_openai_compatible(
+                client, model, prompt, payload, max_tokens
+            )
 
     async def _call_anthropic(
         self, client, model: str, prompt: str, payload: str, max_tokens: int

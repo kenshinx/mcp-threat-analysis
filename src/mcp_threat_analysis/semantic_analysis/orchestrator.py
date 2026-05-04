@@ -22,17 +22,13 @@ from .llm import LLMClient
 from .models import SemanticAnalysisContext, SemanticAnalysisResult
 from .persistence import (
     hydrate_handlers,
+    link_llm_calls_to_findings,
     load_static_summary,
     load_tools,
     save_findings,
 )
 
 log = get_logger(__name__)
-
-
-@dataclass(slots=True)
-class SemanticAnalysisConfig:
-    enable_llm: bool = True
 
 
 @dataclass(slots=True)
@@ -86,7 +82,8 @@ class SemanticAnalysisOrchestrator:
             )
             findings = await self._run_detectors(session, ctx)
             if persist:
-                await save_findings(session, server_id, ctx.artifact_ref, findings)
+                finding_ids = await save_findings(session, server_id, ctx.artifact_ref, findings)
+                await link_llm_calls_to_findings(session, finding_ids, findings)
             return SemanticAnalysisResult(findings=findings)
 
     def _link_handlers(self, tools, handlers) -> None:

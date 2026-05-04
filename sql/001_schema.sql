@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     cost_usd    NUMERIC(10,4),
     status      TEXT,
     finding_id  UUID REFERENCES findings(id),
+    response_json JSONB,
     created_at  TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS llm_calls_cache_idx
