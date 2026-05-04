@@ -1,0 +1,2551 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>MTA · 威胁情报</title>
+<meta name="viewport" content="width=1280">
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================================
+   MTA — design tokens (modeled on HashiCorp marketing system)
+   - Black canvas + charcoal surfaces; surface lift, no shadows
+   - Inter for everything except IDs / shas / code (JetBrains Mono)
+   - Per-layer identity colors map to MTA's 3 analysis layers
+   ============================================================================ */
+:root{
+  /* canvas + surface */
+  --canvas:        #000000;
+  --surface-1:     #15181e;
+  --surface-2:     #1f232b;
+  --surface-3:     #3b3d45;
+  --hairline:      #3b3d45;
+  --hairline-soft: #252830;
+  --inverse:       #ffffff;
+  --inverse-ink:   #000000;
+
+  /* text */
+  --ink:        #ffffff;
+  --ink-muted:  #b2b6bd;
+  --ink-subtle: #656a76;
+
+  /* link */
+  --link:       #2b89ff;
+  --link-visit: #a737ff;
+
+  /* per-layer identity (HashiCorp pattern: per-product → per-layer for MTA) */
+  --layer-static:   #ffcf25;   /* Vault yellow → static_analysis */
+  --layer-semantic: #7b42bc;   /* Terraform purple → semantic_analysis */
+  --layer-risk:     #14c6cb;   /* Waypoint cyan → risk_scoring */
+
+  /* semantic */
+  --error:    #e62b1e;
+  --warning:  #ffcf25;
+  --success:  #00ca8e;
+  --caution:  #bb5a00;
+
+  /* severity tokens (semantic re-export) */
+  --sev-critical: #e62b1e;
+  --sev-high:     #bb5a00;
+  --sev-medium:   #ffcf25;
+  --sev-low:      #b2b6bd;
+  --sev-info:     #656a76;
+
+  /* type */
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SF Mono, Menlo, monospace;
+
+  /* radii */
+  --r-xs:  4px;
+  --r-sm:  6px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+  --r-xxl: 24px;
+  --pill:  9999px;
+
+  /* spacing */
+  --w-page: 1280px;
+}
+
+*{box-sizing: border-box}
+html, body{
+  margin: 0; padding: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+}
+a{color: inherit; text-decoration: none}
+a:hover{color: var(--ink)}
+button{font: inherit; color: inherit; background: transparent; border: 0; cursor: pointer; letter-spacing: 0}
+
+/* ---------- type utilities (HashiCorp tokens) ---------- */
+.t-display-xl  {font-size: 80px; font-weight: 700; line-height: 1.17; letter-spacing: -2.5px}
+.t-display-lg  {font-size: 56px; font-weight: 700; line-height: 1.18; letter-spacing: -1.6px}
+.t-display-md  {font-size: 40px; font-weight: 600; line-height: 1.19; letter-spacing: -1.0px}
+.t-headline    {font-size: 28px; font-weight: 600; line-height: 1.21; letter-spacing: -0.6px}
+.t-card-title  {font-size: 22px; font-weight: 600; line-height: 1.18; letter-spacing: -0.4px}
+.t-subhead     {font-size: 20px; font-weight: 600; line-height: 1.35; letter-spacing: -0.2px}
+.t-body-lg     {font-size: 18px; font-weight: 500; line-height: 1.69}
+.t-body        {font-size: 16px; font-weight: 500; line-height: 1.5}
+.t-body-sm     {font-size: 14px; font-weight: 500; line-height: 1.71}
+.t-caption     {font-size: 13px; font-weight: 500; line-height: 1.38; letter-spacing: 0.2px}
+.t-eyebrow     {font-size: 12px; font-weight: 600; line-height: 1.23; letter-spacing: 0.6px; text-transform: uppercase}
+
+.muted  {color: var(--ink-muted)}
+.subtle {color: var(--ink-subtle)}
+.mono   {font-family: var(--mono); font-weight: 400}
+
+/* ---------- top nav (HashiCorp 64px sticky bar) ---------- */
+.topnav{
+  height: 64px;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline-soft);
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  gap: 32px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topnav .brand{
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+.topnav .brand .slash{color: var(--ink-subtle); margin: 0 4px; font-weight: 500}
+.topnav .nav{
+  display: flex;
+  gap: 28px;
+  margin-left: 16px;
+}
+.topnav .nav a{
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-muted);
+  padding: 4px 0;
+  position: relative;
+}
+.topnav .nav a:hover{color: var(--ink)}
+.topnav .nav a.active{color: var(--ink)}
+.topnav .nav a.active::after{
+  content: ""; position: absolute;
+  left: 0; right: 0; bottom: -22px; height: 2px;
+  background: var(--ink);
+}
+.topnav .status{
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.topnav .status .dot{
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success);
+}
+.topnav .status .sep{color: var(--ink-subtle)}
+.topnav .cta{
+  background: var(--inverse);
+  color: var(--inverse-ink);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+}
+.topnav .cta:hover{background: #e8e8e8}
+
+/* ---------- page shell ---------- */
+.page{
+  max-width: var(--w-page);
+  margin: 0 auto;
+  padding: 64px 32px 96px;
+}
+.section-spacer{height: 96px}
+.section{margin-top: 96px}
+.section:first-child{margin-top: 0}
+
+/* ---------- common: section headers ---------- */
+.eyebrow{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 16px;
+}
+.eyebrow.layer-static   {color: var(--layer-static)}
+.eyebrow.layer-semantic {color: var(--layer-semantic)}
+.eyebrow.layer-risk     {color: var(--layer-risk)}
+.eyebrow .dot{
+  display: inline-block; width: 6px; height: 6px;
+  background: currentColor; border-radius: 50%;
+  vertical-align: 2px; margin-right: 8px;
+}
+
+.crumb{
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-bottom: 16px;
+}
+.crumb a{color: var(--ink-muted)}
+.crumb a:hover{color: var(--ink)}
+.crumb .arrow{color: var(--ink-subtle); margin: 0 8px}
+
+/* ---------- counters (P0/P1/...) — surface-1 cards ---------- */
+.counters{
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin: 32px 0;
+}
+.counter{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+}
+.counter .label{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.counter .num{
+  font-size: 56px; font-weight: 700;
+  line-height: 1.18; letter-spacing: -1.6px;
+  color: var(--ink);
+  margin-top: 12px;
+}
+.counter .delta{
+  font-size: 13px;
+  color: var(--ink-subtle);
+  margin-top: 8px;
+  letter-spacing: 0.2px;
+}
+.counter.crit .num{color: var(--sev-critical)}
+.counter.warn .num{color: var(--sev-medium)}
+.counter.layer-static   .label{color: var(--layer-static)}
+.counter.layer-semantic .label{color: var(--layer-semantic)}
+.counter.layer-risk     .label{color: var(--layer-risk)}
+
+/* ---------- chips ---------- */
+.chips{display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px}
+.chip{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--pill);
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.chip:hover{color: var(--ink); border-color: var(--hairline)}
+.chip.active{
+  background: var(--inverse);
+  color: var(--inverse-ink);
+  border-color: var(--inverse);
+}
+
+/* ---------- triage table (now a stack of surface-1 cards) ---------- */
+.triage{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.triage .head, .triage .row{
+  display: grid;
+  grid-template-columns: 6px 1fr 100px 80px 64px 1.4fr 110px 120px;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+}
+.triage .head{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 14px 20px;
+}
+.triage .head > div{display: flex; align-items: center}
+.triage .head > div:nth-child(1){grid-column: 2 / 3}
+.triage .head > div:nth-child(2){justify-content: flex-end}
+.triage .head > div:nth-child(3){justify-content: center}
+.triage .head > div:nth-child(4){justify-content: flex-end}
+.triage .head > div:nth-child(7){justify-content: flex-end}
+
+.triage .row{
+  border-bottom: 1px solid var(--hairline-soft);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.triage .row:last-child{border-bottom: 0}
+.triage .row:hover{background: var(--surface-2)}
+.triage .row .strip{
+  width: 6px; height: 32px;
+  border-radius: var(--pill);
+  background: var(--ink-subtle);
+}
+.triage .row.p0 .strip{background: var(--sev-critical)}
+.triage .row.p1 .strip{background: var(--sev-high)}
+.triage .row.p2 .strip{background: var(--sev-medium)}
+.triage .row.p3 .strip{background: var(--ink-subtle)}
+
+.triage .row .name{
+  font-size: 16px; font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--ink);
+}
+.triage .row .score{
+  text-align: right;
+  font-size: 28px; font-weight: 600;
+  line-height: 1; letter-spacing: -0.6px;
+}
+.triage .row.high-score .score{color: var(--sev-critical)}
+.triage .row .pri{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-muted);
+  background: var(--surface-2);
+  border-radius: var(--pill);
+  padding: 4px 0;
+  text-align: center;
+  border: 1px solid var(--hairline-soft);
+}
+.triage .row.p0 .pri{color: var(--sev-critical); border-color: var(--sev-critical); background: rgba(230,43,30,0.08)}
+.triage .row.p1 .pri{color: var(--sev-high);     border-color: var(--sev-high);     background: rgba(187,90,0,0.10)}
+.triage .row.p2 .pri{color: var(--sev-medium);   border-color: var(--sev-medium);   background: rgba(255,207,37,0.08)}
+.triage .row.p3 .pri{color: var(--ink-muted);    border-color: var(--hairline)}
+.triage .row .findings-n{
+  text-align: right;
+  font-size: 14px; color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.triage .row .det{
+  font-size: 13px; color: var(--ink-muted);
+  font-family: var(--mono);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.triage .row .when{
+  font-size: 13px; color: var(--ink-subtle);
+  text-align: right;
+  letter-spacing: 0.2px;
+}
+.triage .row .spark{height: 24px}
+
+/* ---------- server header (editorial hero) ---------- */
+.srv-head{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 48px;
+  padding: 32px 0 48px;
+  border-bottom: 1px solid var(--hairline-soft);
+  align-items: end;
+}
+.srv-head .name{
+  font-size: 56px; font-weight: 700;
+  line-height: 1.18; letter-spacing: -1.6px;
+  color: var(--ink);
+}
+.srv-head .layer-pills{
+  display: flex; gap: 8px;
+  margin-top: 16px;
+}
+.srv-head .lpill{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--pill);
+  background: var(--surface-1);
+  color: var(--ink-muted);
+}
+.srv-head .lpill.layer-static   {color: var(--layer-static);   background: rgba(255,207,37,0.10)}
+.srv-head .lpill.layer-semantic {color: var(--layer-semantic); background: rgba(123,66,188,0.20)}
+.srv-head .lpill.layer-risk     {color: var(--layer-risk);     background: rgba(20,198,203,0.10)}
+.srv-head .desc{
+  font-size: 14px; color: var(--ink-subtle);
+  margin-top: 16px;
+  font-family: var(--mono);
+  letter-spacing: 0.2px;
+}
+.srv-head .score-block{
+  text-align: right;
+}
+.srv-head .score-block .label{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.srv-head .score-block .score{
+  font-size: 80px; font-weight: 700;
+  line-height: 1.17; letter-spacing: -2.5px;
+  color: var(--ink);
+  margin-top: 8px;
+}
+.srv-head .score-block .score.crit{color: var(--sev-critical)}
+.srv-head .score-block .score.warn{color: var(--sev-medium)}
+.srv-head .score-block .meta{
+  font-size: 13px; color: var(--ink-muted);
+  margin-top: 8px;
+  letter-spacing: 0.2px;
+}
+
+/* ---------- tabs ---------- */
+.tabs{
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--hairline-soft);
+  margin: 32px 0;
+}
+.tab{
+  padding: 12px 18px;
+  font-size: 14px; font-weight: 600;
+  color: var(--ink-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab:hover{color: var(--ink)}
+.tab.active{color: var(--ink); border-bottom-color: var(--ink)}
+.tab .n{color: var(--ink-subtle); font-weight: 500; margin-left: 6px}
+
+/* ---------- findings columns by layer ---------- */
+.findings-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+}
+.findings-col{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+}
+.findings-col h3{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  margin: 0 0 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.findings-col h3 .dot{
+  width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor;
+}
+.findings-col.layer-static   h3{color: var(--layer-static)}
+.findings-col.layer-semantic h3{color: var(--layer-semantic)}
+.findings-col.layer-risk     h3{color: var(--layer-risk)}
+.findings-col h3 .n{color: var(--ink-muted); font-weight: 500; margin-left: auto; letter-spacing: 0}
+
+.f-row{
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  cursor: pointer;
+}
+.f-row:last-child{border-bottom: 0}
+.f-row:hover .det{color: var(--link)}
+.f-row .head{
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.f-row .sev{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--pill);
+  background: var(--surface-2);
+}
+.f-row.crit   .sev{color: var(--sev-critical); background: rgba(230,43,30,0.10)}
+.f-row.high   .sev{color: var(--sev-high);     background: rgba(187,90,0,0.15)}
+.f-row.medium .sev{color: var(--sev-medium);   background: rgba(255,207,37,0.10)}
+.f-row.low    .sev{color: var(--sev-low)}
+.f-row.info   .sev{color: var(--sev-info)}
+.f-row .conf{
+  font-size: 12px; color: var(--ink-subtle);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.f-row .det{
+  font-size: 14px; font-weight: 600;
+  letter-spacing: -0.1px;
+  color: var(--ink);
+  font-family: var(--mono);
+  word-break: break-word;
+}
+.f-row .meta{
+  font-size: 12px;
+  color: var(--ink-subtle);
+  margin-top: 4px;
+  font-family: var(--mono);
+}
+.f-row .reason{
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-top: 6px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.findings-col .empty{
+  font-size: 13px;
+  color: var(--ink-subtle);
+  padding: 8px 0;
+  font-style: italic;
+}
+
+/* ---------- tools list ---------- */
+.tools-list{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.t-row{
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--hairline-soft);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+}
+.t-row:last-child{border-bottom: 0}
+.t-row .t-name{
+  font-size: 16px; font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--ink);
+  font-family: var(--mono);
+}
+.t-row .t-desc{
+  font-size: 14px; color: var(--ink-muted);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.t-row .t-caps{
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+.t-row .cap{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-muted);
+  background: var(--surface-2);
+  padding: 3px 10px;
+  border-radius: var(--pill);
+}
+.t-row .cap.faint{color: var(--ink-subtle)}
+.t-row .t-shadow{
+  font-size: 12px;
+  color: var(--ink-subtle);
+  text-align: right;
+  align-self: start;
+  font-family: var(--mono);
+}
+.t-row .t-shadow b{color: var(--sev-high); font-weight: 600}
+
+/* ---------- history timeline ---------- */
+.hist{
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 32px;
+}
+.hist .timeline{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  position: relative;
+}
+.hist .timeline-inner{
+  padding-left: 20px;
+  border-left: 1px solid var(--hairline);
+}
+.h-row{
+  padding: 12px 0;
+  position: relative;
+}
+.h-row::before{
+  content: "";
+  position: absolute;
+  left: -25px;
+  top: 18px;
+  width: 9px; height: 9px;
+  background: var(--surface-1);
+  border: 2px solid var(--ink-subtle);
+  border-radius: 50%;
+}
+.h-row.up::before  {border-color: var(--sev-critical); background: var(--sev-critical)}
+.h-row.down::before{border-color: var(--success);      background: var(--success)}
+.h-row .when{
+  font-size: 12px; color: var(--ink-subtle);
+  font-family: var(--mono);
+  letter-spacing: 0.2px;
+}
+.h-row .score{
+  font-size: 18px; font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--ink);
+  margin: 4px 0;
+}
+.h-row .delta{
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.hist .chart-block{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+}
+.hist .chart-title{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 16px;
+}
+
+/* ---------- json blob (mono code) ---------- */
+.json{
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  background: var(--canvas);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  padding: 20px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--ink);
+  line-height: 1.7;
+}
+.json .k{color: var(--layer-risk)}    /* key — cyan */
+.json .s{color: var(--layer-static)}  /* string — yellow */
+.json .n{color: var(--link)}          /* number — blue */
+.json .b{color: var(--layer-semantic)}/* bool/null — purple */
+
+/* ---------- finding drilldown ---------- */
+.fd-head{
+  padding: 32px 0 40px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.fd-head .det{
+  font-size: 40px; font-weight: 600;
+  line-height: 1.19; letter-spacing: -1px;
+  font-family: var(--mono);
+  color: var(--ink);
+  word-break: break-word;
+}
+.fd-head .meta{
+  display: flex; gap: 32px; flex-wrap: wrap;
+  margin-top: 20px;
+}
+.fd-head .meta-item .label{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.fd-head .meta-item .v{
+  font-size: 14px; font-weight: 500;
+  color: var(--ink);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.fd-head .meta-item .v.layer-static   {color: var(--layer-static)}
+.fd-head .meta-item .v.layer-semantic {color: var(--layer-semantic)}
+.fd-head .meta-item .v.layer-risk     {color: var(--layer-risk)}
+.fd-head .meta-item .v.crit{color: var(--sev-critical)}
+.fd-head .meta-item .v.high{color: var(--sev-high)}
+.fd-head .meta-item .v.med {color: var(--sev-medium)}
+.fd-head .timeline{
+  font-size: 13px; color: var(--ink-muted);
+  margin-top: 24px;
+  display: flex; gap: 16px; flex-wrap: wrap;
+  font-family: var(--mono);
+}
+.fd-head .timeline .t{display: flex; gap: 8px; align-items: center}
+.fd-head .timeline .when{color: var(--ink-subtle)}
+.fd-head .timeline .verb{
+  font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  font-size: 11px;
+}
+.fd-head .timeline .verb.created{color: var(--success)}
+.fd-head .timeline .verb.confirmed{color: var(--success)}
+.fd-head .timeline .verb.suppressed{color: var(--sev-medium)}
+.fd-head .timeline .verb.fp{color: var(--ink-muted)}
+
+/* ---------- buttons ---------- */
+.actions{
+  display: flex; gap: 8px;
+  margin-top: 24px;
+}
+.btn{
+  font-size: 14px; font-weight: 600;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.btn-primary{
+  background: var(--inverse);
+  color: var(--inverse-ink);
+}
+.btn-primary:hover{background: #e8e8e8}
+.btn-secondary{
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.btn-secondary:hover{background: var(--surface-3)}
+.btn-tertiary{
+  background: transparent;
+  color: var(--ink-muted);
+  border: 1px solid var(--hairline);
+}
+.btn-tertiary:hover{color: var(--ink); border-color: var(--ink-muted)}
+.btn-danger{
+  background: transparent;
+  color: var(--sev-critical);
+  border: 1px solid rgba(230,43,30,0.30);
+}
+.btn-danger:hover{background: rgba(230,43,30,0.08); border-color: var(--sev-critical)}
+
+/* ---------- code block (source viewer) ---------- */
+.code{
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  background: var(--canvas);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+  line-height: 1.7;
+}
+.code .ln{display: flex; white-space: pre}
+.code .ln .num{
+  flex: 0 0 56px;
+  text-align: right;
+  padding: 0 16px;
+  color: var(--ink-subtle);
+  border-right: 1px solid var(--hairline-soft);
+  user-select: none;
+}
+.code .ln .src{padding: 0 20px; color: var(--ink-muted); flex: 1}
+.code .ln.hit{background: rgba(255,207,37,0.06)}
+.code .ln.hit .num{color: var(--layer-static); font-weight: 600}
+.code .ln.hit .src{color: var(--ink)}
+
+/* ---------- llm metadata grid ---------- */
+.llm-grid{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+.llm-cell{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 20px 24px;
+}
+.llm-cell .label{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+.llm-cell .val{
+  font-size: 22px; font-weight: 600;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.llm-cell .val.success{color: var(--success)}
+.llm-cell .val.warn{color: var(--sev-medium)}
+.llm-cell .sub{
+  font-size: 12px; color: var(--ink-subtle);
+  margin-top: 4px;
+  font-family: var(--mono);
+}
+
+/* ---------- card section block ---------- */
+.card{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-top: 32px;
+}
+.card-title{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 16px;
+}
+
+/* ---------- behavioral diff table ---------- */
+.bd-table{
+  width: 100%;
+  border-collapse: collapse;
+}
+.bd-table th{
+  text-align: left;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.bd-table td{
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hairline-soft);
+  font-family: var(--mono);
+  font-size: 13px;
+  vertical-align: top;
+}
+.bd-table tr:last-child td{border-bottom: 0}
+.bd-table .kind{color: var(--layer-semantic); font-weight: 600}
+.bd-table .declared{color: var(--ink-subtle)}
+.bd-table .actual{color: var(--ink)}
+
+/* ---------- heatmap (per-layer color intensity) ---------- */
+.heatmap-card{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-top: 32px;
+  overflow-x: auto;
+}
+.heatmap{
+  display: grid;
+  font-size: 11px;
+}
+.hm-cell{
+  border: 1px solid var(--canvas);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: outline 120ms ease;
+  border-radius: 2px;
+}
+.hm-cell:hover{outline: 2px solid var(--ink); z-index: 2; position: relative}
+/* layer-tinted intensities */
+.hm-cell.static.l1{background: rgba(255,207,37,0.18)}
+.hm-cell.static.l2{background: rgba(255,207,37,0.32)}
+.hm-cell.static.l3{background: rgba(255,207,37,0.50)}
+.hm-cell.static.l4{background: rgba(255,207,37,0.72)}
+.hm-cell.static.l5{background: rgba(255,207,37,0.92)}
+.hm-cell.semantic.l1{background: rgba(123,66,188,0.22)}
+.hm-cell.semantic.l2{background: rgba(123,66,188,0.40)}
+.hm-cell.semantic.l3{background: rgba(123,66,188,0.60)}
+.hm-cell.semantic.l4{background: rgba(123,66,188,0.80)}
+.hm-cell.semantic.l5{background: rgba(123,66,188,1.0)}
+.hm-cell.risk.l1{background: rgba(20,198,203,0.18)}
+.hm-cell.risk.l2{background: rgba(20,198,203,0.32)}
+.hm-cell.risk.l3{background: rgba(20,198,203,0.50)}
+.hm-cell.risk.l4{background: rgba(20,198,203,0.72)}
+.hm-cell.risk.l5{background: rgba(20,198,203,0.92)}
+
+.hm-row-label{
+  font-size: 13px; font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  padding: 0 16px 0 0;
+  display: flex; align-items: center; justify-content: flex-end;
+  font-family: var(--mono);
+}
+.hm-row-label.benign{color: var(--ink-subtle)}
+.hm-col-label{
+  font-size: 10px; font-weight: 500;
+  color: var(--ink-muted);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  padding: 8px 0 0 0;
+  letter-spacing: 0.2px;
+  font-family: var(--mono);
+}
+.hm-legend{
+  display: flex; gap: 24px; flex-wrap: wrap;
+  margin-top: 20px;
+  font-size: 12px; color: var(--ink-muted);
+}
+.hm-legend .leg{display: flex; align-items: center; gap: 8px}
+.hm-legend .leg .sw{width: 14px; height: 14px; border-radius: 3px}
+.hm-legend .leg.layer-static   .sw{background: var(--layer-static)}
+.hm-legend .leg.layer-semantic .sw{background: var(--layer-semantic)}
+.hm-legend .leg.layer-risk     .sw{background: var(--layer-risk)}
+
+/* ---------- recall bars ---------- */
+.recall-card{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-top: 32px;
+}
+.recall-row{
+  display: grid;
+  grid-template-columns: 240px 1fr 1fr;
+  gap: 16px;
+  font-size: 13px;
+  padding: 8px 0;
+  align-items: center;
+}
+.recall-row .det{
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--mono);
+}
+.recall-row .bar{
+  position: relative; height: 24px;
+  background: var(--surface-2);
+  border-radius: var(--pill);
+  overflow: hidden;
+}
+.recall-row .bar .fill{
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--success);
+  border-radius: var(--pill);
+}
+.recall-row .bar.fp .fill{background: var(--sev-critical)}
+.recall-row .bar .num{
+  position: absolute;
+  right: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--ink); font-size: 12px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.recall-row.h{padding-bottom: 12px; border-bottom: 1px solid var(--hairline-soft); margin-bottom: 8px}
+.recall-row .h-cell{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+
+/* ---------- empty state ---------- */
+.empty-state{
+  padding: 96px 0;
+  text-align: center;
+  color: var(--ink-subtle);
+  font-size: 14px;
+}
+
+/* ---------- toast ---------- */
+.toast{
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface-2);
+  border: 1px solid var(--success);
+  color: var(--ink);
+  font-size: 14px; font-weight: 500;
+  padding: 14px 20px;
+  border-radius: var(--r-md);
+  z-index: 1000;
+  animation: toast-in 200ms ease;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.toast::before{
+  content: "";
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 12px;
+  vertical-align: middle;
+}
+.toast.error{border-color: var(--sev-critical)}
+.toast.error::before{background: var(--sev-critical)}
+@keyframes toast-in{
+  from{opacity: 0; transform: translateY(8px)}
+  to{opacity: 1; transform: translateY(0)}
+}
+
+/* ---------- sub-meta line ---------- */
+.sub-meta{
+  font-size: 13px; color: var(--ink-subtle);
+  font-family: var(--mono);
+  margin-bottom: 12px;
+}
+
+/* ---------- compound filter bar (Triage) ---------- */
+.filter-bar{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.filter-bar .frow{
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+}
+.filter-bar .flabel{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+  width: 96px;
+  flex-shrink: 0;
+}
+.filter-bar .search{
+  flex: 1; min-width: 200px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-soft);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  outline: none;
+}
+.filter-bar .search:focus{border-color: var(--link)}
+.filter-bar .reset{
+  font-size: 12px; color: var(--ink-subtle);
+  margin-left: auto;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.filter-bar .reset:hover{color: var(--ink)}
+.chip.layer-static.active   {background: var(--layer-static);   color: var(--inverse-ink); border-color: var(--layer-static)}
+.chip.layer-semantic.active {background: var(--layer-semantic); color: var(--ink);          border-color: var(--layer-semantic)}
+.chip.layer-risk.active     {background: var(--layer-risk);     color: var(--inverse-ink); border-color: var(--layer-risk)}
+
+/* ---------- "Why flagged" hero panel ---------- */
+.why-card{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 28px 32px;
+  margin-top: 32px;
+  border-left: 4px solid var(--layer-semantic);
+}
+.why-card.layer-static   {border-left-color: var(--layer-static)}
+.why-card.layer-semantic {border-left-color: var(--layer-semantic)}
+.why-card.layer-risk     {border-left-color: var(--layer-risk)}
+.why-card .why-eyebrow{
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 8px;
+}
+.why-card .why-title{
+  font-size: 22px; font-weight: 600;
+  line-height: 1.18; letter-spacing: -0.4px;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.why-card .why-body{
+  font-size: 16px;
+  line-height: 1.69;
+  color: var(--ink-muted);
+}
+.why-card .why-rule{
+  font-size: 12px;
+  color: var(--ink-subtle);
+  margin-top: 16px;
+  font-family: var(--mono);
+  word-break: break-all;
+}
+.why-card .why-rule .rk{color: var(--ink-muted); margin-right: 8px}
+
+/* ---------- evidence detail blocks ---------- */
+.ev-block{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-top: 24px;
+}
+.ev-block .label{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin-bottom: 12px;
+}
+.ev-block .pre{
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  background: var(--canvas);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  padding: 16px 20px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+}
+.ev-block .pre.shell{
+  color: var(--sev-medium);
+  border-color: rgba(255,207,37,0.3);
+  background: rgba(255,207,37,0.04);
+}
+
+/* ---------- shadow collision side-by-side ---------- */
+.collision-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+.collision-cell{
+  background: var(--canvas);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  padding: 20px;
+}
+.collision-cell.this  {border-left: 3px solid var(--sev-critical)}
+.collision-cell.match {border-left: 3px solid var(--ink-muted)}
+.collision-cell .role{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.collision-cell.this  .role{color: var(--sev-critical)}
+.collision-cell.match .role{color: var(--ink-muted)}
+.collision-cell .tname{
+  font-family: var(--mono);
+  font-size: 16px; font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.collision-cell .tdesc{
+  font-size: 13px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+.collision-cell .sid{
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-subtle);
+  margin-top: 12px;
+}
+
+/* ---------- toxic flow chain ---------- */
+.flow-chain{
+  display: flex; align-items: center;
+  gap: 12px; flex-wrap: wrap;
+  margin-top: 12px;
+}
+.flow-node{
+  background: var(--canvas);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  padding: 12px 18px;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.flow-node.source{border-left: 3px solid var(--sev-medium)}
+.flow-node.sink  {border-left: 3px solid var(--sev-critical)}
+.flow-arrow{
+  font-size: 18px;
+  color: var(--ink-subtle);
+}
+
+/* ---------- hex view for hidden-unicode ---------- */
+.hex-view{
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.8;
+  background: var(--canvas);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  padding: 20px;
+  margin-top: 12px;
+  word-break: break-all;
+}
+.hex-view .ch{
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.hex-view .ch.bad{
+  background: var(--sev-critical);
+  color: var(--ink);
+  font-weight: 600;
+  outline: 2px solid var(--sev-critical);
+  outline-offset: 1px;
+}
+.hex-meta{
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 16px;
+}
+.hex-meta .hk{color: var(--ink-subtle)}
+
+/* ---------- io summary highlights (LLM alignment) ---------- */
+.io-grid{
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.io-cell{
+  background: var(--canvas);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  padding: 16px 20px;
+}
+.io-cell .ik{
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin-bottom: 8px;
+}
+.io-cell .iv{
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.6;
+  word-break: break-word;
+}
+.io-cell .iv.empty{color: var(--ink-subtle); font-style: italic}
+.io-cell.alert{border-left: 3px solid var(--sev-critical)}
+
+/* ---------- raw-json collapsible ---------- */
+details.raw-json{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 16px 24px;
+  margin-top: 24px;
+}
+details.raw-json[open]{padding-bottom: 24px}
+details.raw-json summary{
+  cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-subtle);
+  list-style: none;
+}
+details.raw-json summary::before{
+  content: "▸ ";
+  color: var(--ink-subtle);
+  margin-right: 6px;
+}
+details.raw-json[open] summary::before{content: "▾ "}
+details.raw-json summary:hover{color: var(--ink)}
+details.raw-json .json{margin-top: 16px}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <span class="brand">MTA<span class="slash">/</span>威胁情报</span>
+  <nav class="nav">
+    <a href="#triage" data-nav="triage">待审队列</a>
+    <a href="#corpus" data-nav="corpus">总览</a>
+  </nav>
+  <div class="status">
+    <span class="dot"></span>
+    <span id="topbar-status">加载中…</span>
+  </div>
+</header>
+
+<main class="page" id="root">
+  <div class="empty-state">加载 seed.json 中…</div>
+</main>
+
+<script>
+// ============================================================================
+// MTA Prototype — single-file, hash-routed, seed-driven.
+// Visual system: HashiCorp tokens; per-layer identity colors.
+// ============================================================================
+
+const API_BASE = 'http://localhost:8080';
+let DATA = null;
+
+// ----- bootstrap ------------------------------------------------------------
+async function boot(){
+  try{
+    const r = await fetch('seed.json');
+    DATA = await r.json();
+    indexData();
+    paintTopbar();
+    route();
+    window.addEventListener('hashchange', route);
+  }catch(e){
+    document.getElementById('root').innerHTML =
+      `<div class="empty-state">无法加载 seed.json — 请先运行 prototype/dump-seed.sh<br><br><span class="subtle">${escapeHtml(e.message)}</span></div>`;
+  }
+}
+
+// build lookup maps once
+const IDX = {byServer: {}, findingsByServer: {}, llmById: {}, toolsByServer: {},
+             capsByTool: {}, summaryByServer: {}, historyByServer: {}, findingById: {}};
+function indexData(){
+  for (const s of DATA.servers) IDX.byServer[s.id] = s;
+  for (const f of DATA.findings){
+    (IDX.findingsByServer[f.server_id] ??= []).push(f);
+    IDX.findingById[f.id] = f;
+  }
+  for (const lc of DATA.llm_calls) IDX.llmById[lc.id] = lc;
+  for (const t of DATA.tools) (IDX.toolsByServer[t.server_id] ??= []).push(t);
+  for (const c of DATA.tool_capabilities) IDX.capsByTool[c.tool_id] = c;
+  for (const ss of DATA.static_summaries) IDX.summaryByServer[ss.server_id] = ss;
+  for (const h of DATA.risk_history) (IDX.historyByServer[h.server_id] ??= []).push(h);
+  for (const k of Object.keys(IDX.historyByServer)){
+    IDX.historyByServer[k].sort((a,b)=> new Date(a.scored_at) - new Date(b.scored_at));
+  }
+}
+
+function paintTopbar(){
+  const counts = countByPriority();
+  const total = DATA.servers.length;
+  const generated = new Date(DATA.generated_at);
+  const ago = relativeTime(generated);
+  document.getElementById('topbar-status').innerHTML =
+    `${total} 服务器 <span class="subtle">·</span> ` +
+    `${counts.P0} 个 P0 待审 <span class="subtle">·</span> ` +
+    `最近抓取 ${ago}`;
+}
+
+function countByPriority(){
+  const c = {P0:0,P1:0,P2:0,P3:0};
+  for (const t of DATA.triage){
+    if (t.status === 'pending') c[t.priority] = (c[t.priority]||0)+1;
+  }
+  return c;
+}
+
+// ----- routing --------------------------------------------------------------
+function route(){
+  const raw = location.hash.replace(/^#/, '') || 'triage';
+  const [path, _q] = raw.split('?');
+  const [page, ...rest] = path.split('/');
+  document.querySelectorAll('.topnav .nav a').forEach(a =>
+    a.classList.toggle('active', a.dataset.nav === page || (page.startsWith('server') && a.dataset.nav==='triage') || (page.startsWith('finding') && a.dataset.nav==='triage')));
+  switch(page){
+    case 'triage': return renderTriage();
+    case 'server': return renderServer(rest[0]);
+    case 'finding': return renderFinding(rest[0]);
+    case 'corpus': return renderCorpus();
+    default: return renderTriage();
+  }
+}
+
+// ----- rule registry -------------------------------------------------------
+// Maps a detector identifier to a plain-English explanation of why it fires.
+// Lookup order: exact detector name → rule_id last segment → detector-class default.
+const RULE_DOCS = {
+  // ---- manifest / packaging hooks ----
+  'manifest:install-hook-network-or-exec': {
+    title: '安装钩子下载并执行远程代码',
+    why: 'package.json 声明了 preinstall / postinstall 钩子，把远程 URL 通过 shell 管道执行。任何人对该 MCP 服务器执行 `npm install` 时，攻击者控制的代码就会在其机器上运行——无需任何额外交互。这是经典的"供应链投递器"模式。',
+  },
+
+  // ---- semgrep self-authored code rules ----
+  'mcp-bcc-silent-exfil-py': {
+    title: '邮件被静默 BCC 副本外发',
+    why: 'send_email 处理函数无条件地将攻击者控制的地址加入每封邮件的 BCC 字段。用户只看到自己指定的收件人，但每一封邮件同时也被发往第三方。这是伪装成普通邮件工具的数据外泄。',
+  },
+  'mcp-obfuscated-base64-exec-py': {
+    title: 'Base64 解码后的内容直接 exec / eval',
+    why: '处理函数运行时解码一个 base64 字符串并立即执行。仅看字面量无法判断会运行什么——载荷在执行前完全不可读。归类为混淆代码执行。',
+  },
+  'mcp-obfuscated-base64-exec-js': {
+    title: 'Base64 解码后的内容直接 eval / Function',
+    why: '处理函数把 base64 解码后的字符串直接喂给 `eval` / `new Function`。真正执行的代码无法通过静态审查看见。',
+  },
+  'mcp-tool-bcc-pattern': {
+    title: 'README 描述了静默 BCC 行为',
+    why: '工具描述（README 或 docstring）明确提及邮件会被静默复制到一个硬编码地址。绝大多数用户不会读到这段细则，而依据描述行动的 LLM agent 也没有理由把它显式抛给用户。',
+  },
+  'mcp-tool-dynamic-exec-py': {
+    title: '工具入参直达动态代码执行',
+    why: '处理函数的某个参数没有经过任何清洗就到达了 `exec` / `eval` / `compile`。能调用该工具的攻击者就能在服务器进程内执行任意 Python 代码。',
+  },
+  'mcp-tool-dynamic-exec-js': {
+    title: '工具入参直达动态代码执行',
+    why: '处理函数的某个参数没有经过任何清洗就到达了 `eval` / `new Function` / `vm.runInNewContext`。能调用该工具的攻击者就能在服务器进程内执行任意 JavaScript 代码。',
+  },
+  'mcp-tool-shell-injection-py': {
+    title: 'Shell 注入：subprocess + shell=True',
+    why: '处理函数的某个参数被未经转义就拼接到 `subprocess.run(..., shell=True)` / `os.system` 调用中。控制该参数的攻击者就能执行任意 shell 命令。',
+  },
+  'mcp-tool-shell-injection-js': {
+    title: 'Shell 注入：child_process + shell',
+    why: '处理函数的某个参数被未经转义就拼接到 `child_process.exec` / `execSync`（或 `shell: true` 的 `spawn`）调用中。控制该参数的攻击者就能执行任意 shell 命令。',
+  },
+  'mcp-tool-path-traversal-py': {
+    title: '文件读取处理函数存在路径穿越',
+    why: '处理函数把入参当作文件系统路径使用，但没有限制在某个基目录之下。`../../etc/passwd` 这类输入可以读取服务器进程能访问的任意文件。',
+  },
+  'mcp-tool-path-traversal-js': {
+    title: '文件读取处理函数存在路径穿越',
+    why: '处理函数把入参传给 `fs.readFile` 等，但没有做限制。`../../etc/passwd` 这类输入可以读取服务器进程能访问的任意文件。',
+  },
+  'mcp-tool-ssrf-py': {
+    title: 'SSRF：处理函数访问由入参构造的 URL',
+    why: '入参直接控制了对外 HTTP 请求的主机。MCP 服务器可被诱导访问云元数据 IP（169.254.169.254）、内网服务，或者代替运行者访问任意外部地址。',
+  },
+  'mcp-tool-ssrf-js': {
+    title: 'SSRF：处理函数访问由入参构造的 URL',
+    why: '入参直接控制了 `fetch` / `axios` / `http.request` 的目标 URL。风险与 Python 版本相同：云元数据外泄、内网探测、或者借此服务器做跳板。',
+  },
+
+  // ---- semgrep translated_from_cisco ----
+  'credential-harvesting-extract-keys': {
+    title: '凭据收集——提取 API key / 密钥',
+    why: '该工具读取 `.env` / 已知密钥文件 / 凭据路径，并返回或外发其内容。Cisco MCP-Scanner 把任何"无明确必要"就打开这些文件的工具都归类为凭据收集尝试。',
+  },
+  'prompt-injection-ignore-prior': {
+    title: 'Prompt 注入——"忽略上文指令"',
+    why: '工具描述 / README 中含有 "ignore the previous instructions"、"disregard prior context" 之类短语。当 LLM agent 加载该服务器时，描述本身就是对抗输入，会覆盖用户的原始 prompt。',
+  },
+  'tool-poisoning-also-does': {
+    title: '工具投毒——隐含的额外行为（"also does X"）',
+    why: '工具描述顺带提及了超出其声明用途的行为（"also collects metadata"、"also logs to..."）。LLM 会把这视作已授权的行为，而用户通常不会注意到。',
+  },
+  'tool-poisoning-secretly': {
+    title: '工具投毒——明确承认的隐藏行为',
+    why: '工具描述里包含承认隐藏行为的措辞（"secretly"、"without alerting the user"、"in the background"）。这是有意欺骗的直接证据，必须人工复核。',
+  },
+
+  // ---- semantic / character-level ----
+  'char:hidden-unicode': {
+    title: '工具描述含隐藏的 Unicode 字符',
+    why: '工具描述里出现了零宽字符或右到左覆盖符（如 U+200B、U+202E）。普通渲染下人眼看不到，但 LLM 分词器能看到——它们可以承载隐藏指令，在用户毫不知情的情况下改变 LLM 行为。',
+  },
+
+  // ---- shadowing (semantic_analysis) ----
+  'shadow:name-collision': {
+    title: '工具名与另一服务器的工具撞名',
+    why: '该服务器注册了一个 `name` 与语料库中其它 MCP 服务器已发布工具完全相同的工具。当两个服务器同时接入同一个 agent 时，agent 可能调用错的那一个——恶意影子工具就能拦截发往可信工具的调用。',
+  },
+  'shadow:semantic-clone': {
+    title: '工具描述与另一服务器几乎完全相同',
+    why: '该工具描述与另一服务器某工具的余弦相似度极高（往往为 1.0）。即便名称不同，按描述选工具的 LLM 也能被稳定诱导到错误的那一个。',
+  },
+
+  // ---- toxic flow ----
+  'toxic-flow:untrusted-desc-triggers-sensitive': {
+    title: '不可信描述可触发敏感动作',
+    why: '一个工具读取攻击者控制的内容（抓取的 URL / 外部页面 / 收件箱），另一个工具基于该内容执行敏感动作（DNS 查询、网络探测、文件写入）。在上游"源"中投放内容的攻击者可以遥控下游"汇"。',
+  },
+  'toxic-flow:untrusted-read-to-sensitive-write': {
+    title: '不可信读取流向敏感写入',
+    why: '从不可信源获取的数据没有任何中间校验，直接驱动了具有副作用的工具（写、执行、网络出口）。这是经典的"困惑代理"模式：agent 把攻击者提供的数据当作可信数据对待。',
+  },
+
+  // ---- TPA (tool-poisoning-aware) layers ----
+  'tpa-llm': {
+    title: 'LLM 判定的工具投毒',
+    why: '一个 LLM 分类器审视了工具描述，并将其判定为含有工具投毒模式（隐藏指令、未声明的副作用、欺骗性表述）。具体类别与模型解释见下方。',
+  },
+
+  // ---- LLM schema-code alignment ----
+  'llm:schema-code-inconsistency': {
+    title: '工具描述与代码实际行为不一致',
+    why: '处理函数的静态 IO 摘要（网络调用、文件操作、子进程调用、环境变量读取）连同声明的工具描述一起被发给 LLM。模型判定二者不一致——也就是说，实现存在用户被告知之外的副作用。具体行为差异与模型解释见下方。',
+  },
+
+  // ---- untrusted content ----
+  'untrusted-content:unmarked': {
+    title: '不可信内容未标记',
+    why: '某工具从网络源、文件或其它外部输入读取并返回结果，但没有添加 `untrusted_content` 注解，下游 agent 因此无法对其施加隔离。缺少该标记，LLM 就会把攻击者提供的字节当作权威数据对待。',
+  },
+};
+
+// Detector class taxonomy used for filtering
+function classifyDetector(detector){
+  if (detector.startsWith('manifest:'))         return 'manifest';
+  if (detector.startsWith('semgrep:'))          return 'semgrep';
+  if (detector.startsWith('shadow:'))           return 'shadow';
+  if (detector.startsWith('toxic-flow:'))       return 'toxic-flow';
+  if (detector.startsWith('tpa-rule:'))         return 'tpa';
+  if (detector.startsWith('tpa-llm') || detector === 'tpa-llm') return 'tpa';
+  if (detector.startsWith('char:'))             return 'char';
+  if (detector.startsWith('llm:'))              return 'llm';
+  if (detector.startsWith('untrusted-content:'))return 'untrusted';
+  return 'other';
+}
+
+const DETECTOR_CLASS_LABEL = {
+  semgrep: 'Semgrep 规则', shadow: '影子 / 仿冒', 'toxic-flow': '毒流',
+  tpa: 'TPA', llm: 'LLM 判定', char: '字符级', untrusted: '不可信内容',
+  manifest: '清单文件', other: '其他',
+};
+
+// Pull the bare rule key out of evidence (last segment of rule_id, or the detector itself)
+function ruleKey(f){
+  const ev = f.evidence || {};
+  if (ev.rule_id){
+    const last = String(ev.rule_id).split('.').pop();
+    if (last) return last;
+  }
+  return f.detector;
+}
+
+// Returns a {title, why, ruleKey, detector} record. Falls back to a generic
+// stub when the detector is not yet in the registry.
+function whyFlagged(f){
+  const k = ruleKey(f);
+  const direct = RULE_DOCS[f.detector] || RULE_DOCS[k];
+  if (direct){
+    return {title: direct.title, why: direct.why, ruleKey: k, detector: f.detector};
+  }
+  // promoted findings: l3 promote semantic detectors expose `promoted_from`
+  const promo = f.evidence?.promoted_from;
+  if (promo && RULE_DOCS[promo]){
+    const d = RULE_DOCS[promo];
+    return {title: d.title, why: d.why + '（在此被重新提升为语义层 finding，因为静态证据与工具表面有重合。）', ruleKey: k, detector: f.detector};
+  }
+  return {
+    title: f.detector,
+    why: '该检测器尚未注册人类可读的解释。下方的原始 evidence 是唯一权威——可在 prototype/index.html 的 RULE_DOCS 中补充。',
+    ruleKey: k,
+    detector: f.detector,
+  };
+}
+
+// One-line summary for use in finding cards / lists.
+function whySummary(f){
+  return whyFlagged(f).title;
+}
+
+// ----- per-class evidence renderers ----------------------------------------
+// Each returns an HTML string showing the *offending content* for this finding.
+function renderEvidenceDetail(f){
+  const ev = f.evidence || {};
+  const cls = classifyDetector(f.detector);
+
+  // 1. manifest install-hook
+  if (f.detector === 'manifest:install-hook-network-or-exec'){
+    return `
+      <div class="ev-block">
+        <div class="label">安装钩子 (${escapeHtml(ev.hook||'?')}) — 每次 npm install 都会执行</div>
+        <div class="pre shell">${escapeHtml(ev.cmd || '<missing>')}</div>
+      </div>
+    `;
+  }
+
+  // 2. char hidden-unicode — render hex view with the bad codepoint highlighted
+  if (f.detector === 'char:hidden-unicode'){
+    const ctx = ev.context || '';
+    const pos = ev.pos ?? -1;
+    const chars = [...ctx].map((c, i) => {
+      const cp = c.codePointAt(0).toString(16).toUpperCase().padStart(4,'0');
+      const isBad = i === pos;
+      const visible = isBad ? `U+${cp}` : (c === ' ' ? '·' : escapeHtml(c));
+      return `<span class="ch ${isBad?'bad':''}" title="U+${cp}">${visible}</span>`;
+    }).join('');
+    return `
+      <div class="ev-block">
+        <div class="label">工具描述（高亮显示隐藏字符）</div>
+        <div class="hex-view">${chars}</div>
+        <div class="hex-meta">
+          <span><span class="hk">码点:</span> ${escapeHtml(ev.codepoint||'?')}</span>
+          <span><span class="hk">名称:</span> ${escapeHtml(ev.name||'?')}</span>
+          <span><span class="hk">字段:</span> ${escapeHtml(ev.field||'?')}</span>
+          <span><span class="hk">工具:</span> ${escapeHtml(ev.tool_name||'?')}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. shadow — collision side-by-side
+  if (cls === 'shadow'){
+    const matchSrv = IDX.byServer[ev.match_server_id] || {};
+    const matchTool = (IDX.toolsByServer[ev.match_server_id]||[]).find(t => t.id === ev.match_tool_id);
+    const thisSrv  = IDX.byServer[f.server_id] || {};
+    const thisTool = (IDX.toolsByServer[f.server_id]||[]).find(t => t.name === ev.tool_name);
+    const sim = ev.similarity ? `<div class="hex-meta" style="grid-template-columns:auto"><span><span class="hk">余弦相似度:</span> ${ev.similarity.toFixed(3)}</span></div>` : '';
+    return `
+      <div class="ev-block">
+        <div class="label">冲突工具对照</div>
+        <div class="collision-grid">
+          <div class="collision-cell this">
+            <div class="role">本工具</div>
+            <div class="tname">${escapeHtml(ev.tool_name||'?')}</div>
+            <div class="tdesc">${escapeHtml(thisTool?.description || '<无描述>')}</div>
+            <div class="sid">${escapeHtml(thisSrv.canonical_name || f.server_id)}</div>
+          </div>
+          <div class="collision-cell match">
+            <div class="role">冲突于</div>
+            <div class="tname">${escapeHtml(ev.match_name||'?')}</div>
+            <div class="tdesc">${escapeHtml(matchTool?.description || '<无描述>')}</div>
+            <div class="sid">${escapeHtml(matchSrv.canonical_name || ev.match_server_id || '')}</div>
+          </div>
+        </div>
+        ${sim}
+      </div>
+    `;
+  }
+
+  // 4. toxic-flow — source → sink chain
+  if (cls === 'toxic-flow'){
+    const sources = (ev.sources||[]).map(s => `<div class="flow-node source">${escapeHtml(s)}</div>`).join('<span class="flow-arrow">+</span>');
+    const sinks   = (ev.sinks  ||[]).map(s => `<div class="flow-node sink">${escapeHtml(s)}</div>`).join('<span class="flow-arrow">+</span>');
+    return `
+      <div class="ev-block">
+        <div class="label">源 → 汇 流向 · 模式: ${escapeHtml(ev.pattern||'?')}</div>
+        <div class="flow-chain">
+          ${sources || '<span class="subtle">无源</span>'}
+          <span class="flow-arrow">→</span>
+          ${sinks || '<span class="subtle">无汇</span>'}
+        </div>
+      </div>
+    `;
+  }
+
+  // 5. semgrep / tpa-rule / promoted text rules — file:line + auto-fetch source
+  if (cls === 'semgrep' || cls === 'tpa'){
+    if (!ev.file) return '';
+    const file = ev.file;
+    const line = parseInt(ev.line || ev.line_start || 0);
+    let repoPath = file;
+    const m = file.match(/\/(src\/.+|README\.md|package\.json)$/);
+    if (m){
+      const s = IDX.byServer[f.server_id];
+      repoPath = `../example-mcps/${s.canonical_name}/${m[1]}`;
+    }
+    const blockId = `ev-src-${f.id}`;
+    setTimeout(()=> autoFetchSnippet(blockId, repoPath, line), 0);
+    return `
+      <div class="ev-block">
+        <div class="label">匹配位置</div>
+        <div class="sub-meta" style="margin-bottom: 0">${escapeHtml(repoPath)}:${line}</div>
+        <div class="code" id="${blockId}" style="margin-top:12px">读取中…</div>
+      </div>
+    `;
+  }
+
+  // 6. llm:schema-code-inconsistency — IO summary + behavioral_diff
+  if (f.detector === 'llm:schema-code-inconsistency'){
+    const io = ev.io_summary || {};
+    const cells = [
+      ['网络出口',   io.network_egress,   true],
+      ['子进程调用', io.subprocess_calls, true],
+      ['文件访问',   io.file_access,      false],
+      ['环境变量访问', io.env_access,       false],
+    ].map(([label, arr, alert]) => {
+      const has = Array.isArray(arr) && arr.length > 0;
+      const v = has ? arr.map(x=>escapeHtml(x)).join('<br>') : '<span class="iv empty">无</span>';
+      return `
+        <div class="io-cell ${has && alert ? 'alert' : ''}">
+          <div class="ik">${label}</div>
+          <div class="iv">${v}</div>
+        </div>
+      `;
+    }).join('');
+    let diffBlock = '';
+    if (Array.isArray(ev.behavioral_diff) && ev.behavioral_diff.length){
+      diffBlock = `
+        <div class="ev-block">
+          <div class="label">行为差异 · 声明 vs. 实际</div>
+          <table class="bd-table">
+            <thead><tr>
+              <th style="width:120px">类别</th>
+              <th>声明</th>
+              <th>实际</th>
+            </tr></thead>
+            <tbody>
+              ${ev.behavioral_diff.map(d=>`
+                <tr>
+                  <td class="kind">${escapeHtml(d.kind||'?')}</td>
+                  <td class="declared">${escapeHtml(d.declared||'—')}</td>
+                  <td class="actual">${escapeHtml(d.actual||'—')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+    let exp = '';
+    if (ev.explanation){
+      exp = `
+        <div class="ev-block">
+          <div class="label">模型解释</div>
+          <div class="t-body" style="color: var(--ink); line-height: 1.69">${escapeHtml(ev.explanation)}</div>
+        </div>
+      `;
+    }
+    return `
+      <div class="ev-block">
+        <div class="label">发送给 LLM 的静态 IO 摘要</div>
+        <div class="io-grid">${cells}</div>
+      </div>
+      ${diffBlock}
+      ${exp}
+    `;
+  }
+
+  // 7. tpa-llm — model verdict + categories + explanation
+  if (f.detector === 'tpa-llm' || cls === 'tpa' && ev.verdict){
+    const cats = (ev.categories||[]).map(c => `<span class="cap" style="background:rgba(123,66,188,0.18); color:var(--layer-semantic)">${escapeHtml(c)}</span>`).join(' ');
+    return `
+      <div class="ev-block">
+        <div class="label">模型判定</div>
+        <div style="display:flex; gap: 24px; align-items:center; margin-bottom: 16px">
+          <div style="font-family:var(--mono); font-size: 18px; font-weight: 600; color: var(--sev-medium)">${escapeHtml(ev.verdict||'?')}</div>
+          <div>${cats}</div>
+        </div>
+        <div class="t-body" style="color: var(--ink-muted); line-height: 1.69">${escapeHtml(ev.explanation||'<无解释>')}</div>
+      </div>
+    `;
+  }
+
+  // 8. untrusted-content:unmarked — tool name + field
+  if (f.detector === 'untrusted-content:unmarked'){
+    return `
+      <div class="ev-block">
+        <div class="label">未标记的不可信内容</div>
+        <div style="font-family:var(--mono); font-size:14px">
+          <div><span class="subtle">工具:</span> ${escapeHtml(ev.tool_name||'?')}</div>
+          ${ev.field ? `<div><span class="subtle">字段:</span> ${escapeHtml(ev.field)}</div>`:''}
+          ${ev.reason ? `<div style="margin-top:12px; color: var(--ink-muted); font-family:var(--sans); font-size:14px; line-height:1.69">${escapeHtml(ev.reason)}</div>`:''}
+        </div>
+      </div>
+    `;
+  }
+
+  // 9. fallback — show explanation/reason + key fields if recognizable
+  if (ev.explanation){
+    return `
+      <div class="ev-block">
+        <div class="label">检测器说明</div>
+        <div class="t-body" style="color: var(--ink); line-height: 1.69">${escapeHtml(ev.explanation)}</div>
+      </div>
+    `;
+  }
+  return '';
+}
+
+async function autoFetchSnippet(blockId, repoPath, line){
+  try{
+    const r = await fetch(repoPath);
+    if (!r.ok) throw new Error(`${r.status}`);
+    const text = await r.text();
+    const lines = text.split('\n');
+    const start = Math.max(1, line - 6);
+    const end = Math.min(lines.length, line + 6);
+    const slice = [];
+    for (let i = start; i <= end; i++){
+      const cls = i === line ? 'ln hit' : 'ln';
+      slice.push(`<div class="${cls}"><span class="num">${i}</span><span class="src">${escapeHtml(lines[i-1] ?? '')}</span></div>`);
+    }
+    const node = document.getElementById(blockId);
+    if (node) node.innerHTML = slice.join('');
+  }catch(e){
+    const node = document.getElementById(blockId);
+    if (node) node.innerHTML = `<div class="ln"><span class="src subtle">couldn't fetch ${escapeHtml(repoPath)} — ${escapeHtml(e.message)}</span></div>`;
+  }
+}
+
+// ----- screen 1: triage queue ----------------------------------------------
+const TRIAGE_FILTER = {priority: 'all', layer: 'all', cls: 'all', q: ''};
+
+function renderTriage(){
+  const root = document.getElementById('root');
+  const counts = countByPriority();
+  const allPending = DATA.triage.filter(t => t.status === 'pending');
+  allPending.sort((a,b)=>{
+    const order = {P0:0,P1:1,P2:2,P3:3};
+    if (order[a.priority] !== order[b.priority]) return order[a.priority] - order[b.priority];
+    const sa = IDX.byServer[a.server_id]?.risk_score ?? 0;
+    const sb = IDX.byServer[b.server_id]?.risk_score ?? 0;
+    return sb - sa;
+  });
+
+  // Build set of detector classes actually present
+  const presentClasses = new Set();
+  for (const f of DATA.findings){
+    if (f.status === 'active') presentClasses.add(classifyDetector(f.detector));
+  }
+  const classChips = ['semgrep','shadow','toxic-flow','tpa','llm','char','untrusted','manifest']
+    .filter(c => presentClasses.has(c))
+    .map(c => `<span class="chip" data-cls="${c}">${DETECTOR_CLASS_LABEL[c]||c}</span>`)
+    .join('');
+
+  root.innerHTML = `
+    <div class="eyebrow"><span class="dot"></span>实时队列</div>
+    <h1 class="t-display-md" style="margin:0">待审队列</h1>
+    <div class="sub-meta" style="margin-top:12px"><span id="match-count">${allPending.length}</span> 条待处理 · 排序：优先级 ↑ · 分数 ↓</div>
+
+    <div class="counters">
+      <div class="counter crit"><div class="label">P0 严重</div><div class="num" id="ct-P0">${counts.P0}</div><div class="delta" id="ct-P0-d">需立即处理</div></div>
+      <div class="counter warn"><div class="label">P1 高</div><div class="num" id="ct-P1">${counts.P1}</div><div class="delta" id="ct-P1-d">24 小时内处理</div></div>
+      <div class="counter"><div class="label">P2 中</div><div class="num" id="ct-P2">${counts.P2}</div><div class="delta" id="ct-P2-d">批量审查</div></div>
+      <div class="counter"><div class="label">P3 提示</div><div class="num" id="ct-P3">${counts.P3}</div><div class="delta" id="ct-P3-d">无需处理</div></div>
+      <div class="counter"><div class="label">语料库</div><div class="num" id="ct-corpus">${DATA.servers.length}</div><div class="delta" id="ct-corpus-d">已追踪服务器</div></div>
+    </div>
+
+    <div class="filter-bar" id="filter-bar">
+      <div class="frow">
+        <span class="flabel">优先级</span>
+        <span class="chip active" data-pri="all">全部</span>
+        <span class="chip" data-pri="P0">P0</span>
+        <span class="chip" data-pri="P1">P1</span>
+        <span class="chip" data-pri="P2">P2</span>
+        <span class="chip" data-pri="P3">P3</span>
+        <a href="#" class="reset" id="reset-filters">重置</a>
+      </div>
+      <div class="frow">
+        <span class="flabel">分析层</span>
+        <span class="chip active" data-layer="all">全部</span>
+        <span class="chip layer-static"   data-layer="static_analysis">static_analysis</span>
+        <span class="chip layer-semantic" data-layer="semantic_analysis">semantic_analysis</span>
+        <span class="chip layer-risk"     data-layer="risk_scoring">risk_scoring</span>
+      </div>
+      <div class="frow">
+        <span class="flabel">检测器</span>
+        <span class="chip active" data-cls="all">全部</span>
+        ${classChips}
+      </div>
+      <div class="frow">
+        <span class="flabel">搜索</span>
+        <input type="text" class="search" id="filter-search" placeholder="按 canonical_name 子串过滤，如 postmark 或 _ts" />
+      </div>
+    </div>
+
+    <div class="triage" id="triage">
+      <div class="head">
+        <div>服务器</div>
+        <div>分数</div>
+        <div>优先级</div>
+        <div>活跃</div>
+        <div>主要检测器</div>
+        <div>入队</div>
+        <div>30 天</div>
+      </div>
+      <div id="triage-rows"></div>
+    </div>
+  `;
+  applyTriageFilters(allPending);
+
+  // Chip handlers — group by data-* attribute
+  const bar = document.getElementById('filter-bar');
+  bar.addEventListener('click', e=>{
+    const t = e.target;
+    if (t.id === 'reset-filters'){
+      e.preventDefault();
+      TRIAGE_FILTER.priority = 'all'; TRIAGE_FILTER.layer = 'all';
+      TRIAGE_FILTER.cls = 'all'; TRIAGE_FILTER.q = '';
+      renderTriage();
+      return;
+    }
+    if (!t.classList.contains('chip')) return;
+    let group, val;
+    if (t.dataset.pri !== undefined)        { group = 'priority'; val = t.dataset.pri; }
+    else if (t.dataset.layer !== undefined) { group = 'layer';    val = t.dataset.layer; }
+    else if (t.dataset.cls !== undefined)   { group = 'cls';      val = t.dataset.cls; }
+    else return;
+    TRIAGE_FILTER[group] = val;
+    // toggle active within the same group
+    const sel = group === 'priority' ? 'data-pri' : group === 'layer' ? 'data-layer' : 'data-cls';
+    bar.querySelectorAll(`.chip[${sel}]`).forEach(c => c.classList.remove('active'));
+    t.classList.add('active');
+    applyTriageFilters(allPending);
+  });
+  document.getElementById('filter-search').addEventListener('input', e=>{
+    TRIAGE_FILTER.q = e.target.value.trim().toLowerCase();
+    applyTriageFilters(allPending);
+  });
+  document.getElementById('filter-search').value = TRIAGE_FILTER.q;
+}
+
+function applyTriageFilters(allPending){
+  const subset = allPending.filter(t => {
+    if (TRIAGE_FILTER.priority !== 'all' && t.priority !== TRIAGE_FILTER.priority) return false;
+    const s = IDX.byServer[t.server_id];
+    if (!s) return false;
+    if (TRIAGE_FILTER.q && !s.canonical_name.toLowerCase().includes(TRIAGE_FILTER.q)) return false;
+    if (TRIAGE_FILTER.layer !== 'all' || TRIAGE_FILTER.cls !== 'all'){
+      const fs = (IDX.findingsByServer[t.server_id]||[]).filter(f=>f.status==='active');
+      if (TRIAGE_FILTER.layer !== 'all' && !fs.some(f => f.layer === TRIAGE_FILTER.layer)) return false;
+      if (TRIAGE_FILTER.cls   !== 'all' && !fs.some(f => classifyDetector(f.detector) === TRIAGE_FILTER.cls)) return false;
+    }
+    return true;
+  });
+  document.getElementById('match-count').textContent = subset.length;
+
+  // Recount priorities within the filtered subset, and recount corpus coverage
+  const sc = {P0:0, P1:0, P2:0, P3:0};
+  const seenServers = new Set();
+  for (const t of subset){
+    sc[t.priority] = (sc[t.priority]||0) + 1;
+    seenServers.add(t.server_id);
+  }
+  document.getElementById('ct-P0').textContent = sc.P0;
+  document.getElementById('ct-P1').textContent = sc.P1;
+  document.getElementById('ct-P2').textContent = sc.P2;
+  document.getElementById('ct-P3').textContent = sc.P3;
+  // Corpus card: show "X / total" so the total stays anchored
+  const total = DATA.servers.length;
+  const isFiltered = TRIAGE_FILTER.priority !== 'all'
+                  || TRIAGE_FILTER.layer    !== 'all'
+                  || TRIAGE_FILTER.cls      !== 'all'
+                  || TRIAGE_FILTER.q        !== '';
+  document.getElementById('ct-corpus').textContent = isFiltered ? `${seenServers.size} / ${total}` : total;
+  document.getElementById('ct-corpus-d').textContent = isFiltered ? '过滤后 / 全部' : '已追踪服务器';
+  // dim cards that have zero matches under the active filter
+  for (const k of ['P0','P1','P2','P3']){
+    document.getElementById('ct-'+k).style.opacity = sc[k] === 0 && isFiltered ? '0.4' : '1';
+  }
+
+  renderTriageRows(subset);
+}
+
+function renderTriageRows(rows){
+  const out = rows.map(t => {
+    const s = IDX.byServer[t.server_id];
+    const score = s?.risk_score ?? 0;
+    const findings = IDX.findingsByServer[t.server_id] || [];
+    const active = findings.filter(f=>f.status==='active');
+    const topDet = active.length
+      ? topDetector(active)
+      : '—';
+    const sparkSvg = renderSparkline(IDX.historyByServer[t.server_id] || []);
+    const cls = `row ${t.priority.toLowerCase()} ${score >= 50 ? 'high-score' : ''}`;
+    return `
+      <div class="${cls}" data-sid="${t.server_id}">
+        <div class="strip"></div>
+        <div class="name">${t.canonical_name}</div>
+        <div class="score">${formatScore(score)}</div>
+        <div class="pri">${t.priority}</div>
+        <div class="findings-n">${active.length}</div>
+        <div class="det">${escapeHtml(topDet)}</div>
+        <div class="when">${relativeTime(new Date(t.enqueued_at))}</div>
+        <div class="spark">${sparkSvg}</div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('triage-rows').innerHTML = out || '<div class="empty-state">无匹配服务器</div>';
+  document.querySelectorAll('#triage-rows .row').forEach(r =>
+    r.addEventListener('click', ()=> location.hash = `server/${r.dataset.sid}`));
+}
+
+function topDetector(findings){
+  const counts = {};
+  for (const f of findings){
+    counts[f.detector] = (counts[f.detector]||0) + (sevWeight(f.severity) * (f.confidence||0.5));
+  }
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+}
+
+function sevWeight(s){
+  return {critical:5,high:4,medium:3,low:2,info:1}[s] || 1;
+}
+
+const SEV_CN = {critical:'严重', high:'高', medium:'中', low:'低', info:'提示'};
+
+function layerKey(layer){
+  if (layer === 'static_analysis') return 'static';
+  if (layer === 'semantic_analysis') return 'semantic';
+  if (layer === 'risk_scoring') return 'risk';
+  return 'risk';
+}
+
+// inline svg sparkline
+function renderSparkline(history){
+  if (!history.length) return '<span class="subtle mono" style="font-size:11px">暂无历史</span>';
+  const W = 100, H = 24, P = 2;
+  const scores = history.map(h => h.score || 0);
+  const max = Math.max(...scores, 100);
+  const min = Math.min(...scores, 0);
+  const span = (max - min) || 1;
+  const xs = scores.length === 1 ? [W/2] : scores.map((_,i) => P + (i/(scores.length-1))*(W-2*P));
+  const ys = scores.map(s => H - P - ((s-min)/span)*(H-2*P));
+  const path = xs.map((x,i)=>`${i===0?'M':'L'}${x.toFixed(1)} ${ys[i].toFixed(1)}`).join(' ');
+  const last = `<circle cx="${xs[xs.length-1].toFixed(1)}" cy="${ys[ys.length-1].toFixed(1)}" r="2.5" fill="#ffffff" />`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <path d="${path}" stroke="#b2b6bd" stroke-width="1.2" fill="none"/>
+    ${last}
+  </svg>`;
+}
+
+// ----- screen 2: server detail ---------------------------------------------
+function renderServer(sid){
+  const root = document.getElementById('root');
+  const s = IDX.byServer[sid];
+  if (!s){ root.innerHTML = `<div class="empty-state">未找到服务器: ${escapeHtml(sid)}</div>`; return; }
+  const findings = (IDX.findingsByServer[sid] || []).filter(f=>f.status==='active');
+  const total = (IDX.findingsByServer[sid] || []).length;
+  const tab = (location.hash.split('?')[1]?.split('=')[1]) || 'findings';
+  const pri = s.risk_priority || 'P3';
+  const score = s.risk_score || 0;
+  const scoreCls = score >= 70 ? 'crit' : score >= 40 ? 'warn' : '';
+
+  // which layers does this server have findings on?
+  const layersPresent = new Set(findings.map(f=>f.layer));
+
+  const layerPills = [
+    ['static_analysis','static_analysis','static'],
+    ['semantic_analysis','semantic_analysis','semantic'],
+    ['risk_scoring','risk_scoring','risk'],
+  ].map(([k,label,key]) => layersPresent.has(k)
+    ? `<span class="lpill layer-${key}">${label}</span>`
+    : `<span class="lpill">${label}</span>`
+  ).join('');
+
+  root.innerHTML = `
+    <nav class="crumb"><a href="#triage">待审队列</a><span class="arrow">/</span> 服务器</nav>
+
+    <div class="srv-head">
+      <div>
+        <div class="eyebrow">服务器 · ${pri}</div>
+        <div class="name">${escapeHtml(s.canonical_name)}</div>
+        <div class="layer-pills">${layerPills}</div>
+        <div class="desc">${s.id} · 状态: ${escapeHtml(s.status||'active')} · weights: ${escapeHtml(s.weights_version||'v0')}</div>
+      </div>
+      <div class="score-block">
+        <div class="label">风险分</div>
+        <div class="score ${scoreCls}">${formatScore(s.risk_score)}</div>
+        <div class="meta">${findings.length} 活跃 · ${total} 累计 · ${relativeTime(new Date(s.risk_updated_at))}评分</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <a class="tab ${tab==='findings'?'active':''}" href="#server/${sid}?tab=findings">发现 <span class="n">${findings.length}</span></a>
+      <a class="tab ${tab==='tools'?'active':''}" href="#server/${sid}?tab=tools">工具 <span class="n">${(IDX.toolsByServer[sid]||[]).length}</span></a>
+      <a class="tab ${tab==='history'?'active':''}" href="#server/${sid}?tab=history">历史 <span class="n">${(IDX.historyByServer[sid]||[]).length}</span></a>
+      <a class="tab ${tab==='static'?'active':''}" href="#server/${sid}?tab=static">静态摘要</a>
+    </div>
+
+    <div id="server-tab"></div>
+  `;
+  renderServerTab(sid, tab);
+}
+
+function renderServerTab(sid, tab){
+  const node = document.getElementById('server-tab');
+  switch(tab){
+    case 'tools': return node.innerHTML = renderTools(sid);
+    case 'history': return node.innerHTML = renderHistory(sid);
+    case 'static': return node.innerHTML = renderStaticSummary(sid);
+    default: return node.innerHTML = renderFindingsByLayer(sid);
+  }
+}
+
+function renderFindingsByLayer(sid){
+  const findings = (IDX.findingsByServer[sid] || []).filter(f=>f.status==='active');
+  const layers = [
+    ['static_analysis','static'],
+    ['semantic_analysis','semantic'],
+    ['risk_scoring','risk'],
+  ];
+  const cols = layers.map(([L, key]) => {
+    const list = findings.filter(f=>f.layer===L)
+      .sort((a,b)=> sevWeight(b.severity)-sevWeight(a.severity) || (b.confidence||0)-(a.confidence||0));
+    const inner = list.length ? list.map(f => fRow(f)).join('') :
+      `<div class="empty">本层暂无活跃 finding</div>`;
+    return `
+      <div class="findings-col layer-${key}">
+        <h3><span class="dot"></span>${L}<span class="n">${list.length}</span></h3>
+        ${inner}
+      </div>
+    `;
+  }).join('');
+  return `<div class="findings-grid">${cols}</div>`;
+}
+
+function fRow(f){
+  const summary = whySummary(f);
+  const tool = f.evidence?.tool_name || '';
+  const conf = f.confidence ? `${f.confidence.toFixed(2)}` : '';
+  const sevCN = SEV_CN[f.severity] || f.severity;
+  return `
+    <div class="f-row ${f.severity}" data-fid="${f.id}" onclick="location.hash='finding/${f.id}'">
+      <div class="head">
+        <span class="sev">${sevCN}</span>
+        <span class="conf">置信 ${conf}</span>
+      </div>
+      <div class="det">${escapeHtml(f.detector)}</div>
+      ${tool ? `<div class="meta">tool: ${escapeHtml(tool)}</div>`:''}
+      <div class="reason">${escapeHtml(summary)}</div>
+    </div>
+  `;
+}
+
+function renderTools(sid){
+  const tools = (IDX.toolsByServer[sid] || []).sort((a,b)=>a.name.localeCompare(b.name));
+  if (!tools.length) return `<div class="empty-state">未发现工具记录</div>`;
+  const findings = IDX.findingsByServer[sid] || [];
+  const html = tools.map(t => {
+    const caps = IDX.capsByTool[t.id]?.capabilities || [];
+    const shadowFindings = findings.filter(f=>
+      f.detector?.startsWith('shadow:') && f.evidence?.tool_name === t.name);
+    const shadowText = shadowFindings.length
+      ? shadowFindings.slice(0,3).map(f=>`<div><b>仿冒</b> ${escapeHtml(f.evidence?.match_name || '?')}@${escapeHtml(shortId(f.evidence?.match_server_id))}</div>`).join('')
+      : '<div class="subtle">—</div>';
+    return `
+      <div class="t-row">
+        <div>
+          <div class="t-name">${escapeHtml(t.name)}</div>
+          <div class="t-desc">${escapeHtml(t.description || '<无描述>')}</div>
+          <div class="t-caps">
+            ${caps.length ? caps.map(c=>`<span class="cap">${escapeHtml(c)}</span>`).join('') : '<span class="cap faint">未分类能力</span>'}
+          </div>
+        </div>
+        <div class="t-shadow">${shadowText}</div>
+      </div>
+    `;
+  }).join('');
+  return `<div class="tools-list">${html}</div>`;
+}
+
+function renderHistory(sid){
+  const hist = (IDX.historyByServer[sid] || []).slice().reverse();  // newest first for timeline
+  if (!hist.length) return `<div class="empty-state">暂无评分历史</div>`;
+  const rows = hist.map((h,i,arr) => {
+    const prev = arr[i+1];
+    let cls = '';
+    let delta = '';
+    if (prev){
+      const d = (h.score||0) - (prev.score||0);
+      cls = d > 0 ? 'up' : d < 0 ? 'down' : '';
+      delta = d ? `${d>0?'+':''}${d.toFixed(1)}` : '无变化';
+    } else {
+      delta = '首次评分';
+    }
+    return `
+      <div class="h-row ${cls}">
+        <div class="when">${new Date(h.scored_at).toISOString().replace('T',' ').slice(0,19)} UTC</div>
+        <div class="score">${formatScore(h.score)} · ${escapeHtml(h.priority||'?')} · ${h.finding_count} 条 finding</div>
+        <div class="delta">Δ ${delta} · ${escapeHtml(h.weights_version||'v0')}</div>
+      </div>
+    `;
+  }).join('');
+  // simple SVG line chart
+  const chart = renderHistoryChart(IDX.historyByServer[sid] || []);
+  return `
+    <div class="hist">
+      <div class="timeline"><div class="timeline-inner">${rows}</div></div>
+      <div class="chart-block">
+        <div class="chart-title">风险分变化轨迹</div>
+        ${chart}
+      </div>
+    </div>
+  `;
+}
+
+function renderHistoryChart(history){
+  if (history.length < 2) return `<div class="subtle">至少需要 2 个数据点</div>`;
+  const W = 480, H = 220, P = 24;
+  const scores = history.map(h => h.score || 0);
+  const max = 100, min = 0;
+  const xs = scores.map((_,i) => P + (i/(scores.length-1))*(W-2*P));
+  const ys = scores.map(s => H - P - ((s-min)/(max-min))*(H-2*P));
+  const path = xs.map((x,i)=>`${i===0?'M':'L'}${x.toFixed(1)} ${ys[i].toFixed(1)}`).join(' ');
+  const fill = path + ` L${xs[xs.length-1].toFixed(1)} ${H-P} L${xs[0].toFixed(1)} ${H-P} Z`;
+  const dots = xs.map((x,i)=>`<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="3" fill="#14c6cb"/>`).join('');
+  const ticks = [0,25,50,75,100].map(t => {
+    const y = H - P - ((t-min)/(max-min))*(H-2*P);
+    return `<line x1="${P}" x2="${W-P}" y1="${y}" y2="${y}" stroke="#252830"/>
+            <text x="${P-6}" y="${(y+4).toFixed(1)}" fill="#656a76" font-size="10" text-anchor="end" font-family="JetBrains Mono">${t}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
+    ${ticks}
+    <path d="${fill}" fill="rgba(20,198,203,0.18)"/>
+    <path d="${path}" stroke="#14c6cb" stroke-width="1.6" fill="none"/>
+    ${dots}
+  </svg>`;
+}
+
+function renderStaticSummary(sid){
+  const ss = IDX.summaryByServer[sid];
+  if (!ss) return `<div class="empty-state">该服务器尚未生成 static_summary</div>`;
+  const txt = jsonHighlight(ss.summary, 0);
+  const written = relativeTime(new Date(ss.written_at));
+  return `
+    <div class="sub-meta">
+      写入: ${written} · 版本: ${escapeHtml(ss.version)}
+    </div>
+    <pre class="json">${txt}</pre>
+  `;
+}
+
+// ----- screen 3: finding drilldown -----------------------------------------
+function renderFinding(fid){
+  const f = IDX.findingById[fid];
+  const root = document.getElementById('root');
+  if (!f){ root.innerHTML = `<div class="empty-state">未找到 finding: ${escapeHtml(fid)}</div>`; return; }
+  const s = IDX.byServer[f.server_id];
+  const llm_call_id = f.evidence?.llm_call_id;
+  const llm = llm_call_id ? IDX.llmById[llm_call_id] : null;
+  const tab = (location.hash.split('?')[1]?.split('=')[1]) || 'evidence';
+  const layer = layerKey(f.layer);
+  const sevCls = f.severity === 'critical' ? 'crit'
+              : f.severity === 'high' ? 'high'
+              : f.severity === 'medium' ? 'med'
+              : '';
+
+  root.innerHTML = `
+    <nav class="crumb">
+      <a href="#triage">待审队列</a><span class="arrow">/</span>
+      <a href="#server/${f.server_id}">${escapeHtml(s?.canonical_name||'?')}</a><span class="arrow">/</span>
+      Finding
+    </nav>
+    <div class="fd-head">
+      <div class="eyebrow layer-${layer}"><span class="dot"></span>${f.layer}</div>
+      <div class="det">${escapeHtml(f.detector)}</div>
+      <div class="meta">
+        <div class="meta-item"><div class="label">严重度</div><div class="v ${sevCls}">${SEV_CN[f.severity]||f.severity}</div></div>
+        <div class="meta-item"><div class="label">置信度</div><div class="v">${f.confidence?.toFixed(2)}</div></div>
+        <div class="meta-item"><div class="label">状态</div><div class="v">${f.status}</div></div>
+        <div class="meta-item"><div class="label">问题码</div><div class="v">${escapeHtml(f.issue_code||'—')}</div></div>
+      </div>
+      <div class="timeline">
+        <span class="t"><span class="when">${new Date(f.created_at).toISOString().slice(0,19).replace('T',' ')}</span> <span class="verb created">创建</span></span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="actionFinding('${fid}','confirm')">确认</button>
+        <button class="btn btn-secondary" onclick="actionFinding('${fid}','false-positive')">标记误报</button>
+        <button class="btn btn-danger" onclick="actionFinding('${fid}','suppress')">抑制</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <a class="tab ${tab==='evidence'?'active':''}" href="#finding/${fid}?tab=evidence">证据</a>
+      <a class="tab ${tab==='source'?'active':''}" href="#finding/${fid}?tab=source">源码</a>
+      <a class="tab ${tab==='llm'?'active':''}" href="#finding/${fid}?tab=llm">LLM 调用 ${llm?'':'<span class="n">—</span>'}</a>
+      <a class="tab ${tab==='related'?'active':''}" href="#finding/${fid}?tab=related">相关</a>
+    </div>
+
+    <div id="fd-tab"></div>
+  `;
+  renderFindingTab(f, llm, tab);
+}
+
+function renderFindingTab(f, llm, tab){
+  const node = document.getElementById('fd-tab');
+  switch(tab){
+    case 'source': return renderSourceTab(node, f);
+    case 'llm': return renderLLMTab(node, llm);
+    case 'related': return renderRelatedTab(node, f);
+    default: return renderEvidenceTab(node, f);
+  }
+}
+
+function renderEvidenceTab(node, f){
+  const ev = f.evidence || {};
+  const why = whyFlagged(f);
+  const layer = layerKey(f.layer);
+  const detail = renderEvidenceDetail(f);
+
+  node.innerHTML = `
+    <div class="why-card layer-${layer}">
+      <div class="why-eyebrow">为何被判定为问题</div>
+      <div class="why-title">${escapeHtml(why.title)}</div>
+      <div class="why-body">${escapeHtml(why.why)}</div>
+      <div class="why-rule">
+        <span class="rk">规则</span>${escapeHtml(why.ruleKey)}
+        ${why.ruleKey !== why.detector ? ` <span class="rk" style="margin-left:16px">检测器</span>${escapeHtml(why.detector)}` : ''}
+      </div>
+    </div>
+    ${detail}
+    <details class="raw-json">
+      <summary>原始 evidence · JSONB</summary>
+      <pre class="json">${jsonHighlight(ev, 0)}</pre>
+    </details>
+  `;
+}
+
+function renderSourceTab(node, f){
+  const file = f.evidence?.file;
+  const line = parseInt(f.evidence?.line || f.evidence?.line_start || 0);
+  if (!file){
+    node.innerHTML = `<div class="empty-state">evidence 中未提供 file/line</div>`;
+    return;
+  }
+  let repoPath = file;
+  const m = file.match(/\/(src\/.+)$/);
+  if (m){
+    const s = IDX.byServer[f.server_id];
+    repoPath = `../example-mcps/${s.canonical_name}/${m[1]}`;
+  }
+  node.innerHTML = `
+    <div class="sub-meta" style="margin-top:24px">${escapeHtml(repoPath)}:${line}</div>
+    <div class="code" id="src-pre">读取中…</div>
+  `;
+  fetch(repoPath).then(r=>r.text()).then(text=>{
+    const lines = text.split('\n');
+    const start = Math.max(1, line - 30);
+    const end = Math.min(lines.length, line + 30);
+    const slice = [];
+    for (let i = start; i <= end; i++){
+      const cls = i === line ? 'ln hit' : 'ln';
+      slice.push(`<div class="${cls}"><span class="num">${i}</span><span class="src">${escapeHtml(lines[i-1] ?? '')}</span></div>`);
+    }
+    document.getElementById('src-pre').innerHTML = slice.join('');
+  }).catch(e=>{
+    document.getElementById('src-pre').innerHTML = `<div class="empty-state">无法读取 ${escapeHtml(repoPath)}<br><br><span class="subtle">${escapeHtml(e.message)}</span></div>`;
+  });
+}
+
+function renderLLMTab(node, llm){
+  if (!llm){
+    node.innerHTML = `
+      <div class="empty-state">
+        此 finding 未关联 LLM 调用<br><br>
+        <span class="subtle">规则类检测器，或早于 llm_call_id 字段引入前的 finding</span>
+      </div>`;
+    return;
+  }
+  const statusCls = llm.status === 'ok' ? 'success' : llm.status === 'cache_hit' ? 'success' : 'warn';
+  node.innerHTML = `
+    <div class="llm-grid">
+      <div class="llm-cell">
+        <div class="label">模型</div>
+        <div class="val">${escapeHtml(llm.model)}</div>
+      </div>
+      <div class="llm-cell">
+        <div class="label">状态</div>
+        <div class="val ${statusCls}">${llm.status}</div>
+      </div>
+      <div class="llm-cell">
+        <div class="label">Token 数</div>
+        <div class="val">${llm.tokens_in} <span class="subtle" style="font-size:14px; font-weight:500">入</span> · ${llm.tokens_out} <span class="subtle" style="font-size:14px; font-weight:500">出</span></div>
+      </div>
+      <div class="llm-cell">
+        <div class="label">成本</div>
+        <div class="val">$${(parseFloat(llm.cost_usd)||0).toFixed(4)}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">prompt_sha · input_sha</div>
+      <pre class="json">${escapeHtml(llm.prompt_sha)}\n${escapeHtml(llm.input_sha)}</pre>
+      <div class="sub-meta" style="margin-top:12px; margin-bottom:0">Prompt 内容未持久化（仅记录 sha）— 已知缺口，见路线图</div>
+    </div>
+    <div class="card">
+      <div class="card-title">response_json</div>
+      <pre class="json">${jsonHighlight(llm.response_json || {}, 0)}</pre>
+    </div>
+  `;
+}
+
+function renderRelatedTab(node, f){
+  const ours = (IDX.findingsByServer[f.server_id]||[]);
+  const related = ours.filter(o => o.id !== f.id &&
+    (f.evidence?.tool_name && o.evidence?.tool_name === f.evidence?.tool_name));
+  if (!related.length){
+    node.innerHTML = `<div class="empty-state">同一工具下暂无相关 finding</div>`;
+    return;
+  }
+  // group related by layer
+  const byLayer = {static_analysis: [], semantic_analysis: [], risk_scoring: []};
+  for (const r of related){ (byLayer[r.layer] ??= []).push(r); }
+  const cols = [
+    ['static_analysis','static'],
+    ['semantic_analysis','semantic'],
+    ['risk_scoring','risk'],
+  ].map(([L, key]) => {
+    const list = byLayer[L] || [];
+    const inner = list.length ? list.map(r => fRow(r)).join('')
+      : `<div class="empty">无</div>`;
+    return `
+      <div class="findings-col layer-${key}">
+        <h3><span class="dot"></span>${L}<span class="n">${list.length}</span></h3>
+        ${inner}
+      </div>
+    `;
+  }).join('');
+  node.innerHTML = `<div class="findings-grid" style="margin-top:24px">${cols}</div>`;
+}
+
+// ----- screen 4: corpus explorer ------------------------------------------
+function renderCorpus(){
+  const root = document.getElementById('root');
+  const detectors = uniqueDetectors();
+  const servers = DATA.servers.slice().sort((a,b)=>(b.risk_score||0)-(a.risk_score||0));
+
+  // build matrix: counts[server][detector] = active count
+  const counts = {};
+  for (const f of DATA.findings){
+    if (f.status !== 'active') continue;
+    counts[f.server_id] ??= {};
+    counts[f.server_id][f.detector] = (counts[f.server_id][f.detector]||0) + 1;
+  }
+
+  // group detectors by layer
+  const byLayer = {};
+  for (const d of detectors) (byLayer[d.layer] ??= []).push(d);
+  const orderedDetectors = [];
+  for (const layer of ['static_analysis','semantic_analysis','risk_scoring']){
+    if (!byLayer[layer]) continue;
+    for (const d of byLayer[layer].sort((a,b)=>a.detector.localeCompare(b.detector))) orderedDetectors.push(d);
+  }
+
+  const labelW = 240;
+  const cellW = 22;
+  const N = orderedDetectors.length;
+
+  const colHeaders = orderedDetectors.map(({detector}) =>
+    `<div class="hm-col-label" title="${escapeHtml(detector)}">${escapeHtml(detector.length>32?detector.slice(0,30)+'…':detector)}</div>`
+  ).join('');
+
+  const rows = servers.map(s => {
+    const isBenign = s.canonical_name.startsWith('benign_');
+    const labelClass = isBenign ? 'hm-row-label benign' : 'hm-row-label';
+    const cells = orderedDetectors.map(({layer, detector}) => {
+      const n = counts[s.id]?.[detector] || 0;
+      const lvl = n === 0 ? '' : n === 1 ? 'l1' : n === 2 ? 'l2' : n === 3 ? 'l3' : n <= 6 ? 'l4' : 'l5';
+      const lk = layerKey(layer);
+      return `<div class="hm-cell ${lk} ${lvl}" title="${escapeHtml(s.canonical_name)} · ${escapeHtml(detector)} · ${n}"></div>`;
+    }).join('');
+    return `<div class="${labelClass}" title="${formatScore(s.risk_score)}">${escapeHtml(s.canonical_name)}</div>${cells}`;
+  }).join('');
+
+  // recall bars
+  const recall = orderedDetectors.map(({detector}) => {
+    let mal = 0, ben = 0;
+    for (const s of servers){
+      const n = counts[s.id]?.[detector] || 0;
+      if (n === 0) continue;
+      if (s.canonical_name.startsWith('benign_')) ben++;
+      else mal++;
+    }
+    const malW = mal/8 * 100;
+    const benW = ben/3 * 100;
+    return {detector, mal, ben, malW, benW};
+  });
+
+  root.innerHTML = `
+    <div class="eyebrow"><span class="dot"></span>全景</div>
+    <h1 class="t-display-md" style="margin:0">检测器 × 服务器矩阵</h1>
+    <div class="sub-meta" style="margin-top:12px">${servers.length} 服务器 × ${orderedDetectors.length} 检测器 · 色块深度 = 活跃 finding 数</div>
+
+    <div class="heatmap-card">
+      <div class="heatmap" style="grid-template-columns: ${labelW}px repeat(${N}, ${cellW}px); grid-auto-rows: 28px; gap: 1px">
+        <div></div>${colHeaders}
+        ${rows}
+      </div>
+      <div class="hm-legend">
+        <div class="leg layer-static"><span class="sw"></span>static_analysis</div>
+        <div class="leg layer-semantic"><span class="sw"></span>semantic_analysis</div>
+        <div class="leg layer-risk"><span class="sw"></span>risk_scoring</div>
+      </div>
+    </div>
+
+    <div style="margin-top:96px">
+      <div class="eyebrow"><span class="dot"></span>质量</div>
+      <h2 class="t-display-md" style="margin:0">检测器召回率</h2>
+      <div class="sub-meta" style="margin-top:12px">良性 vs 恶意 — 一眼看出误报风险</div>
+
+      <div class="recall-card">
+        <div class="recall-row h">
+          <div class="h-cell">检测器</div>
+          <div class="h-cell">恶意 /8</div>
+          <div class="h-cell">良性 /3</div>
+        </div>
+        ${recall.filter(r=>r.mal||r.ben).map(r => `
+          <div class="recall-row">
+            <div class="det" title="${escapeHtml(r.detector)}">${escapeHtml(r.detector)}</div>
+            <div class="bar"><div class="fill" style="width:${r.malW}%"></div><div class="num">${r.mal}</div></div>
+            <div class="bar fp"><div class="fill" style="width:${r.benW}%"></div><div class="num">${r.ben}</div></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function uniqueDetectors(){
+  const seen = new Set();
+  const out = [];
+  for (const f of DATA.findings){
+    const k = `${f.layer}|${f.detector}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({layer: f.layer, detector: f.detector});
+  }
+  return out;
+}
+
+// ----- actions: real fetch to mta-api --------------------------------------
+async function actionFinding(fid, action){
+  const url = `${API_BASE}/findings/${fid}/${action}`;
+  try{
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}});
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    await r.json();
+    const verbCN = {confirm:'确认', 'false-positive':'标记误报', suppress:'抑制'}[action] || action;
+    showToast(`${verbCN} 成功`);
+    const f = IDX.findingById[fid];
+    if (f){
+      if (action === 'confirm') f.status = 'confirmed';
+      else if (action === 'false-positive') f.status = 'false_positive';
+      else if (action === 'suppress') f.status = 'suppressed';
+    }
+    setTimeout(()=> route(), 200);
+  }catch(e){
+    showToast(`${action} 失败: ${e.message}\n\n→ POST ${url}\n→ 请先启动 mta-api: mta-api --port 8080`, true);
+  }
+}
+
+let _toastTimer;
+function showToast(msg, isError){
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  t.style.whiteSpace = 'pre-wrap';
+  document.body.appendChild(t);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.remove(), 5000);
+}
+
+// ----- helpers --------------------------------------------------------------
+function escapeHtml(s){
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function shortId(uuid){ return (uuid||'').split('-')[0]; }
+function formatScore(s){
+  if (s == null) return '—';
+  if (s >= 100) return '100';
+  return parseFloat(s).toFixed(s < 10 ? 1 : 0);
+}
+function relativeTime(d){
+  if (!(d instanceof Date) || isNaN(d)) return '未知';
+  const ms = Date.now() - d.getTime();
+  const s = Math.floor(ms/1000);
+  if (s < 60) return `${s} 秒前`;
+  const m = Math.floor(s/60);
+  if (m < 60) return `${m} 分钟前`;
+  const h = Math.floor(m/60);
+  if (h < 24) return `${h} 小时前`;
+  const day = Math.floor(h/24);
+  if (day < 30) return `${day} 天前`;
+  return d.toISOString().slice(0,10);
+}
+
+function jsonHighlight(obj, indent){
+  const pad = '  '.repeat(indent);
+  if (obj === null) return `<span class="b">null</span>`;
+  if (typeof obj === 'string') return `<span class="s">"${escapeHtml(obj)}"</span>`;
+  if (typeof obj === 'number' || typeof obj === 'boolean') return `<span class="n">${obj}</span>`;
+  if (Array.isArray(obj)){
+    if (!obj.length) return `[]`;
+    const inner = obj.map(v => `${pad}  ${jsonHighlight(v, indent+1)}`).join(',\n');
+    return `[\n${inner}\n${pad}]`;
+  }
+  if (typeof obj === 'object'){
+    const keys = Object.keys(obj);
+    if (!keys.length) return `{}`;
+    const inner = keys.map(k => `${pad}  <span class="k">"${escapeHtml(k)}"</span>: ${jsonHighlight(obj[k], indent+1)}`).join(',\n');
+    return `{\n${inner}\n${pad}}`;
+  }
+  return escapeHtml(String(obj));
+}
+
+boot();
+</script>
+</body>
+</html>

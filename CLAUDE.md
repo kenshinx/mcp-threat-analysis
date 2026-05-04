@@ -21,13 +21,14 @@ pip install -e ".[dev]"
 
 # DB init (Postgres 15+ with vector / pgcrypto / pg_trgm / fuzzystrmatch)
 psql -d mta -f sql/001_schema.sql
+psql -d mta -f sql/002_llm_calls_response.sql   # llm_calls.response_json column
 
 # Run a single layer
 mta-static <artifact-path-or-url> --version <ver> --lang <python|typescript|...>
 mta-semantic --server-id <uuid> --version <ver>
 mta-risk aggregate <server-uuid>     # one-shot
 mta-risk ingest                       # polling daemon
-mta-api --port 8080                   # risk_scoring read API (FastAPI)
+mta-api --port 8080                   # risk_scoring read API (FastAPI, CORS enabled)
 
 # Tests
 pytest -q
@@ -64,7 +65,9 @@ Semgrep rules are split into:
 
 Rule-based (no LLM): `CharLayerDetector`, `TPATextRulesDetector` (re-promotes `static_analysis` text-rule findings as `semantic_analysis` findings with tool linkage), `ShadowingDetector`, `UntrustedContentDetector`.
 
-LLM-based: `TPALLMDetector`, `SchemaCodeAlignmentDetector`, `ToxicFlowDetector`. All LLM access goes through `semantic_analysis.llm.LLMClient`, which supports two providers via `MTA_LLM_PROVIDER`: `"anthropic"` (Anthropic Messages API with ephemeral prompt caching) or `"openai_compatible"` (any OpenAI Chat Completions-compatible endpoint — Volcengine Ark, DeepSeek, vLLM, Together, etc; configure via `MTA_LLM_BASE_URL` + `MTA_LLM_API_KEY` + `MTA_LLM_MODEL_*`). Tenacity retries, in-process result cache, per-detector budget. Without a valid API key, the LLM client raises `LLMUnavailable` and detectors short-circuit cleanly.
+LLM-based: `TPALLMDetector`, `SchemaCodeAlignmentDetector`, `ToxicFlowDetector`. All LLM access goes through `semantic_analysis.llm.LLMClient`, which supports two providers via `MTA_LLM_PROVIDER`: `"anthropic"` (Anthropic Messages API with ephemeral prompt caching) or `"openai_compatible"` (any OpenAI Chat Completions-compatible endpoint — Volcengine Ark, DeepSeek, vLLM, Together, etc; configure via `MTA_LLM_BASE_URL` + `MTA_LLM_API_KEY` + `MTA_LLM_MODEL_*`). Tenacity retries, in-process result cache, per-detector budget. Concurrency is bounded by an internal `asyncio.Semaphore` with provider-specific defaults (anthropic=3, openai_compatible=16). Without a valid API key, the LLM client raises `LLMUnavailable` and detectors short-circuit cleanly.
+
+Every LLM call (live, cache hit, or error) is persisted as an `llm_calls` audit row with `model`, `prompt_sha`, `input_sha`, token counts, `cost_usd`, `status`, and the full `response_json`. Detectors that emit a finding linked to a call set `evidence['llm_call_id']` so the prototype's Finding-detail "LLM call" tab and `GET /findings/{id}` can join the two.
 
 Schema-Code alignment is the most architecturally important detector — it is split into the Cisco-style component pipeline:
 
@@ -93,6 +96,7 @@ Weights are split across two tables in `weights.py`: `severity` and `detector_cl
 
 ## What lives where
 
-- DB schema source of truth: `sql/001_schema.sql`. Changes here must be reflected in the SQLAlchemy text() queries; there is no ORM model layer. The `findings.layer` column uses string values `'static_analysis'` / `'semantic_analysis'` / `'runtime_analysis'` / `'network_analysis'` (the latter two reserved for out-of-scope layers).
+- DB schema source of truth: `sql/001_schema.sql` + numbered migrations (`sql/002_*.sql`, ...). Changes here must be reflected in the SQLAlchemy text() queries; there is no ORM model layer. The `findings.layer` column uses string values `'static_analysis'` / `'semantic_analysis'` / `'runtime_analysis'` / `'network_analysis'` (the latter two reserved for out-of-scope layers).
 - Settings (env vars): `common/config.py`. All env reads go through `get_settings()` — do not call `os.getenv` from analyzer code.
 - Design docs: `docs/`. The master doc plus three sub-system docs are the canonical reference for module boundaries; the design doc and code agree by intent, so update both when you change behavior.
+- `risk_scoring/api/server.py` exposes the read API + lifecycle POSTs. Read endpoints: `/healthz`, `/servers`, `/servers/{id}/risk[/history]`, `/triage`, `/findings/{id}` (joins `llm_calls` and same-tool related findings), `/corpus/heatmap`. CORS allows `http://localhost:7137` and `http://localhost:5173` so browser clients can consume the API directly.
