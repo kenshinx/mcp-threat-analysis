@@ -49,6 +49,12 @@ cat <<JSON
                             SELECT id, detector, model, prompt_sha, input_sha, tokens_in, tokens_out,
                                    cost_usd, status, finding_id, response_json, created_at
                               FROM llm_calls
-                          ) l")
+                          ) l"),
+  "remote_observations": $(q "SELECT COALESCE(jsonb_agg(to_jsonb(o) ORDER BY o.probed_at DESC), '[]'::jsonb) FROM (
+                            SELECT id, server_id, probed_at, transport, endpoint, ok, protocol_ver,
+                                   server_info, capabilities, tools, resources, prompts, tls,
+                                   auth_kind, latency_ms, error
+                              FROM remote_observations
+                          ) o" 2>/dev/null || echo '[]')
 }
 JSON

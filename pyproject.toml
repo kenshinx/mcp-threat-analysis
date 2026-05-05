@@ -38,6 +38,7 @@ mta-static = "mcp_threat_analysis.static_analysis.cli:main"
 mta-semantic = "mcp_threat_analysis.semantic_analysis.cli:main"
 mta-risk = "mcp_threat_analysis.risk_scoring.cli:main"
 mta-api = "mcp_threat_analysis.risk_scoring.api.server:main"
+mta-remote = "mcp_threat_analysis.remote_analysis.cli:main"
 
 [build-system]
 requires = ["hatchling"]

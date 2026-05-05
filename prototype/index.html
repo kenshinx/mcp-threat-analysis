@@ -39,6 +39,7 @@
   --layer-static:   #ffcf25;   /* Vault yellow → static_analysis */
   --layer-semantic: #7b42bc;   /* Terraform purple → semantic_analysis */
   --layer-risk:     #14c6cb;   /* Waypoint cyan → risk_scoring */
+  --layer-remote:   #f24c53;   /* Boundary coral → remote_analysis */
 
   /* semantic */
   --error:    #e62b1e;
@@ -185,6 +186,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .eyebrow.layer-static   {color: var(--layer-static)}
 .eyebrow.layer-semantic {color: var(--layer-semantic)}
 .eyebrow.layer-risk     {color: var(--layer-risk)}
+.eyebrow.layer-remote   {color: var(--layer-remote)}
 .eyebrow .dot{
   display: inline-block; width: 6px; height: 6px;
   background: currentColor; border-radius: 50%;
@@ -372,6 +374,8 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .srv-head .lpill.layer-static   {color: var(--layer-static);   background: rgba(255,207,37,0.10)}
 .srv-head .lpill.layer-semantic {color: var(--layer-semantic); background: rgba(123,66,188,0.20)}
 .srv-head .lpill.layer-risk     {color: var(--layer-risk);     background: rgba(20,198,203,0.10)}
+.srv-head .lpill.layer-remote   {color: var(--layer-remote);   background: rgba(242,76,83,0.14)}
+.srv-head .lpill.transport      {color: var(--ink);            background: rgba(242,76,83,0.20); border: 1px solid var(--layer-remote)}
 .srv-head .desc{
   font-size: 14px; color: var(--ink-subtle);
   margin-top: 16px;
@@ -443,6 +447,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .findings-col.layer-static   h3{color: var(--layer-static)}
 .findings-col.layer-semantic h3{color: var(--layer-semantic)}
 .findings-col.layer-risk     h3{color: var(--layer-risk)}
+.findings-col.layer-remote   h3{color: var(--layer-remote)}
 .findings-col h3 .n{color: var(--ink-muted); font-weight: 500; margin-left: auto; letter-spacing: 0}
 
 .f-row{
@@ -660,6 +665,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .fd-head .meta-item .v.layer-static   {color: var(--layer-static)}
 .fd-head .meta-item .v.layer-semantic {color: var(--layer-semantic)}
 .fd-head .meta-item .v.layer-risk     {color: var(--layer-risk)}
+.fd-head .meta-item .v.layer-remote   {color: var(--layer-remote)}
 .fd-head .meta-item .v.crit{color: var(--sev-critical)}
 .fd-head .meta-item .v.high{color: var(--sev-high)}
 .fd-head .meta-item .v.med {color: var(--sev-medium)}
@@ -1031,6 +1037,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .why-card.layer-static   {border-left-color: var(--layer-static)}
 .why-card.layer-semantic {border-left-color: var(--layer-semantic)}
 .why-card.layer-risk     {border-left-color: var(--layer-risk)}
+.why-card.layer-remote   {border-left-color: var(--layer-remote)}
 .why-card .why-eyebrow{
   font-size: 12px; font-weight: 600;
   letter-spacing: 0.6px; text-transform: uppercase;
@@ -1286,7 +1293,8 @@ async function boot(){
 
 // build lookup maps once
 const IDX = {byServer: {}, findingsByServer: {}, llmById: {}, toolsByServer: {},
-             capsByTool: {}, summaryByServer: {}, historyByServer: {}, findingById: {}};
+             capsByTool: {}, summaryByServer: {}, historyByServer: {}, findingById: {},
+             observationsByServer: {}};
 function indexData(){
   for (const s of DATA.servers) IDX.byServer[s.id] = s;
   for (const f of DATA.findings){
@@ -1300,6 +1308,13 @@ function indexData(){
   for (const h of DATA.risk_history) (IDX.historyByServer[h.server_id] ??= []).push(h);
   for (const k of Object.keys(IDX.historyByServer)){
     IDX.historyByServer[k].sort((a,b)=> new Date(a.scored_at) - new Date(b.scored_at));
+  }
+  for (const o of (DATA.remote_observations || [])){
+    (IDX.observationsByServer[o.server_id] ??= []).push(o);
+  }
+  // Newest observation first
+  for (const k of Object.keys(IDX.observationsByServer)){
+    IDX.observationsByServer[k].sort((a,b)=> new Date(b.probed_at) - new Date(a.probed_at));
   }
 }
 
@@ -1459,6 +1474,24 @@ const RULE_DOCS = {
     title: '不可信内容未标记',
     why: '某工具从网络源、文件或其它外部输入读取并返回结果，但没有添加 `untrusted_content` 注解，下游 agent 因此无法对其施加隔离。缺少该标记，LLM 就会把攻击者提供的字节当作权威数据对待。',
   },
+
+  // ---- remote_analysis (P1) ----
+  'remote:tls-self-signed': {
+    title: 'TLS 证书未被公共 CA 链签发',
+    why: '该 endpoint 使用自签或私有 CA 签发的证书，浏览器/默认信任库会拒绝。在缺少真实证书校验的情况下，路径上的中间方可以无声替换响应——把任意工具描述塞进客户端，构成最直接的提示注入路径。',
+  },
+  'remote:tls-near-expiry': {
+    title: 'TLS 证书即将过期',
+    why: '证书剩余有效期不足 30 天（≤7 天判 high）。一旦过期，全部连接会失败，所有依赖该 MCP 的 agent 都会断流；过期后短窗口被无察觉续签为攻击者证书的风险也明显上升。',
+  },
+  'remote:auth-missing': {
+    title: 'tools/list 未要求鉴权',
+    why: '没有 Authorization / API-key 头的探测仍然成功返回了非空工具列表，且 endpoint 不在回环地址。工具描述本身就是提示注入面——把它对公网开放，意味着任何路过者都能读到，也意味着可以在不持有凭证的情况下投递经过精心设计的描述给依赖该服务器的 agent。',
+  },
+  'remote:protocol-version-mismatch': {
+    title: '上报的 MCP 协议版本不在已知列表中',
+    why: '服务器返回的 `protocolVersion` 不属于 MTA 已记录的发布版本集合。可能是拼写错误、私有分叉、或预发布；本身不一定是攻击，但值得人工瞄一眼，避免后续解析按错版本走。',
+  },
 };
 
 // Detector class taxonomy used for filtering
@@ -1472,13 +1505,14 @@ function classifyDetector(detector){
   if (detector.startsWith('char:'))             return 'char';
   if (detector.startsWith('llm:'))              return 'llm';
   if (detector.startsWith('untrusted-content:'))return 'untrusted';
+  if (detector.startsWith('remote:') || detector.startsWith('remote-drift:')) return 'remote';
   return 'other';
 }
 
 const DETECTOR_CLASS_LABEL = {
   semgrep: 'Semgrep 规则', shadow: '影子 / 仿冒', 'toxic-flow': '毒流',
   tpa: 'TPA', llm: 'LLM 判定', char: '字符级', untrusted: '不可信内容',
-  manifest: '清单文件', other: '其他',
+  manifest: '清单文件', remote: '远程探测', other: '其他',
 };
 
 // Pull the bare rule key out of evidence (last segment of rule_id, or the detector itself)
@@ -1767,7 +1801,7 @@ function renderTriage(){
   for (const f of DATA.findings){
     if (f.status === 'active') presentClasses.add(classifyDetector(f.detector));
   }
-  const classChips = ['semgrep','shadow','toxic-flow','tpa','llm','char','untrusted','manifest']
+  const classChips = ['semgrep','shadow','toxic-flow','tpa','llm','char','untrusted','manifest','remote']
     .filter(c => presentClasses.has(c))
     .map(c => `<span class="chip" data-cls="${c}">${DETECTOR_CLASS_LABEL[c]||c}</span>`)
     .join('');
@@ -1801,6 +1835,7 @@ function renderTriage(){
         <span class="chip layer-static"   data-layer="static_analysis">static_analysis</span>
         <span class="chip layer-semantic" data-layer="semantic_analysis">semantic_analysis</span>
         <span class="chip layer-risk"     data-layer="risk_scoring">risk_scoring</span>
+        <span class="chip layer-remote"   data-layer="remote_analysis">remote_analysis</span>
       </div>
       <div class="frow">
         <span class="flabel">检测器</span>
@@ -1945,6 +1980,7 @@ function sevWeight(s){
 const SEV_CN = {critical:'严重', high:'高', medium:'中', low:'低', info:'提示'};
 
 function layerKey(layer){
+  if (layer === 'remote_analysis') return 'remote';
   if (layer === 'static_analysis') return 'static';
   if (layer === 'semantic_analysis') return 'semantic';
   if (layer === 'risk_scoring') return 'risk';
@@ -1988,10 +2024,18 @@ function renderServer(sid){
     ['static_analysis','static_analysis','static'],
     ['semantic_analysis','semantic_analysis','semantic'],
     ['risk_scoring','risk_scoring','risk'],
+    ['remote_analysis','remote_analysis','remote'],
   ].map(([k,label,key]) => layersPresent.has(k)
     ? `<span class="lpill layer-${key}">${label}</span>`
     : `<span class="lpill">${label}</span>`
   ).join('');
+
+  // Transport pill — when this server has at least one remote_observations row
+  const obs = (IDX.observationsByServer && IDX.observationsByServer[sid]) || [];
+  const lastObs = obs[0];
+  const transportPill = lastObs
+    ? `<span class="lpill transport" title="${escapeHtml(lastObs.endpoint||'')}">REMOTE · ${escapeHtml(lastObs.transport||'?')}</span>`
+    : '';
 
   root.innerHTML = `
     <nav class="crumb"><a href="#triage">待审队列</a><span class="arrow">/</span> 服务器</nav>
@@ -2000,7 +2044,7 @@ function renderServer(sid){
       <div>
         <div class="eyebrow">服务器 · ${pri}</div>
         <div class="name">${escapeHtml(s.canonical_name)}</div>
-        <div class="layer-pills">${layerPills}</div>
+        <div class="layer-pills">${transportPill}${layerPills}</div>
         <div class="desc">${s.id} · 状态: ${escapeHtml(s.status||'active')} · weights: ${escapeHtml(s.weights_version||'v0')}</div>
       </div>
       <div class="score-block">
@@ -2034,10 +2078,14 @@ function renderServerTab(sid, tab){
 
 function renderFindingsByLayer(sid){
   const findings = (IDX.findingsByServer[sid] || []).filter(f=>f.status==='active');
+  // Show the remote column only when this server actually has remote findings or observations
+  const hasRemote = findings.some(f => f.layer === 'remote_analysis')
+                 || (IDX.observationsByServer[sid]||[]).length > 0;
   const layers = [
     ['static_analysis','static'],
     ['semantic_analysis','semantic'],
     ['risk_scoring','risk'],
+    ...(hasRemote ? [['remote_analysis','remote']] : []),
   ];
   const cols = layers.map(([L, key]) => {
     const list = findings.filter(f=>f.layer===L)
@@ -2051,7 +2099,8 @@ function renderFindingsByLayer(sid){
       </div>
     `;
   }).join('');
-  return `<div class="findings-grid">${cols}</div>`;
+  const cols_n = layers.length;
+  return `<div class="findings-grid" style="grid-template-columns: repeat(${cols_n}, 1fr)">${cols}</div>`;
 }
 
 function fRow(f){

@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project at a glance
 
-Whole-internet detection platform for malicious / vulnerable MCP servers. Implements three layers from the master design (`docs/恶意 MCP 检测可执行技术方案.md`):
+Whole-internet detection platform for malicious / vulnerable MCP servers. Implements four layers:
 
-- **`static_analysis/`** — static analysis (`src/mcp_threat_analysis/static_analysis/`)
+- **`static_analysis/`** — static analysis on packaged source (`src/mcp_threat_analysis/static_analysis/`)
 - **`semantic_analysis/`** — semantic / LLM analysis (`src/mcp_threat_analysis/semantic_analysis/`)
 - **`risk_scoring/`** — risk aggregation, scoring, triage (`src/mcp_threat_analysis/risk_scoring/`)
+- **`remote_analysis/`** — live MCP-server probing over streamable-HTTP (P1) / SSE / stdio (P2+) (`src/mcp_threat_analysis/remote_analysis/`)
 
-Discovery, canonicalization, runtime / temporal analysis, network sandbox, and disclosure are intentionally out of scope here; their interfaces are stubbed where `static_analysis` / `semantic_analysis` / `risk_scoring` produce or consume their data.
+Discovery, canonicalization, network sandbox, and disclosure are intentionally out of scope here; their interfaces are stubbed where the four layers produce or consume their data.
 
 ## Commands
 
@@ -29,6 +30,7 @@ mta-semantic --server-id <uuid> --version <ver>
 mta-risk aggregate <server-uuid>     # one-shot
 mta-risk ingest                       # polling daemon
 mta-api --port 8080                   # risk_scoring read API (FastAPI, CORS enabled)
+mta-remote scan <https-mcp-endpoint> [--header K=V]   # one-shot probe + persist (P1)
 
 # Tests
 pytest -q
@@ -85,6 +87,10 @@ Weights are split across two tables in `weights.py`: `severity` and `detector_cl
 
 `Lifecycle` is the only place that mutates `findings.status`. Treat it as the single owner of finding state transitions.
 
+### `remote_analysis` internal flow (P1)
+
+`mta-remote scan <endpoint>` invokes `remote_analysis.orchestrator.scan()` which: probes the endpoint via the chosen transport (P1 ships only `StreamableHTTPTransport` — `initialize` → `notifications/initialized` → `tools/list` (+ `resources/list` / `prompts/list` when advertised)) → captures TLS cert details → runs the three P1 snapshot detectors (`remote:tls-self-signed` / `remote:tls-near-expiry` / `remote:auth-missing` / `remote:protocol-version-mismatch`) → writes a `remote_observations` row, synthesizes a `tools` row per reported tool plus a stub `static_summaries(kind='remote')` so existing `semantic_analysis` rule-based detectors (`char:hidden-unicode` / `shadow:*` / `tpa-llm` / `untrusted-content:unmarked`) run against remote servers unchanged → upserts findings via the shared helper. Drift detection across observations and the recurring `mta-remote watch` daemon are P2.
+
 ## Conventions
 
 - Async throughout — SQLAlchemy 2.x async + asyncpg. Synchronous code only in CLI entrypoints.
@@ -96,7 +102,7 @@ Weights are split across two tables in `weights.py`: `severity` and `detector_cl
 
 ## What lives where
 
-- DB schema source of truth: `sql/001_schema.sql` + numbered migrations (`sql/002_*.sql`, ...). Changes here must be reflected in the SQLAlchemy text() queries; there is no ORM model layer. The `findings.layer` column uses string values `'static_analysis'` / `'semantic_analysis'` / `'runtime_analysis'` / `'network_analysis'` (the latter two reserved for out-of-scope layers).
+- DB schema source of truth: `sql/001_schema.sql` + numbered migrations (`sql/002_*.sql`, `sql/003_remote_observations.sql`, ...). Changes here must be reflected in the SQLAlchemy text() queries; there is no ORM model layer. The `findings.layer` column uses string values `'static_analysis'` / `'semantic_analysis'` / `'remote_analysis'` / `'runtime_analysis'` / `'network_analysis'` (the latter two reserved for out-of-scope layers).
 - Settings (env vars): `common/config.py`. All env reads go through `get_settings()` — do not call `os.getenv` from analyzer code.
 - Design docs: `docs/`. The master doc plus three sub-system docs are the canonical reference for module boundaries; the design doc and code agree by intent, so update both when you change behavior.
 - `risk_scoring/api/server.py` exposes the read API + lifecycle POSTs. Read endpoints: `/healthz`, `/servers`, `/servers/{id}/risk[/history]`, `/triage`, `/findings/{id}` (joins `llm_calls` and same-tool related findings), `/corpus/heatmap`. CORS allows `http://localhost:7137` and `http://localhost:5173` so browser clients can consume the API directly.

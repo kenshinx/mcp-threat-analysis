@@ -11,7 +11,13 @@ from typing import Any, Literal
 from uuid import UUID
 
 Severity = Literal["info", "low", "medium", "high", "critical"]
-Layer = Literal["static_analysis", "semantic_analysis", "runtime_analysis", "network_analysis"]
+Layer = Literal[
+    "static_analysis",
+    "semantic_analysis",
+    "runtime_analysis",
+    "network_analysis",
+    "remote_analysis",
+]
 FindingStatus = Literal[
     "active", "suppressed", "superseded", "confirmed", "false_positive"
 ]
