@@ -39,6 +39,7 @@
   --layer-static:   #ffcf25;   /* Vault yellow → static_analysis */
   --layer-semantic: #7b42bc;   /* Terraform purple → semantic_analysis */
   --layer-risk:     #14c6cb;   /* Waypoint cyan → risk_scoring */
+  --layer-remote:   #f24c53;   /* Boundary coral → remote_analysis */
 
   /* semantic */
   --error:    #e62b1e;
@@ -185,6 +186,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .eyebrow.layer-static   {color: var(--layer-static)}
 .eyebrow.layer-semantic {color: var(--layer-semantic)}
 .eyebrow.layer-risk     {color: var(--layer-risk)}
+.eyebrow.layer-remote   {color: var(--layer-remote)}
 .eyebrow .dot{
   display: inline-block; width: 6px; height: 6px;
   background: currentColor; border-radius: 50%;
@@ -372,6 +374,8 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .srv-head .lpill.layer-static   {color: var(--layer-static);   background: rgba(255,207,37,0.10)}
 .srv-head .lpill.layer-semantic {color: var(--layer-semantic); background: rgba(123,66,188,0.20)}
 .srv-head .lpill.layer-risk     {color: var(--layer-risk);     background: rgba(20,198,203,0.10)}
+.srv-head .lpill.layer-remote   {color: var(--layer-remote);   background: rgba(242,76,83,0.14)}
+.srv-head .lpill.transport      {color: var(--ink-muted);      background: var(--surface-2); border: 1px solid var(--hairline)}
 .srv-head .desc{
   font-size: 14px; color: var(--ink-subtle);
   margin-top: 16px;
@@ -443,6 +447,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .findings-col.layer-static   h3{color: var(--layer-static)}
 .findings-col.layer-semantic h3{color: var(--layer-semantic)}
 .findings-col.layer-risk     h3{color: var(--layer-risk)}
+.findings-col.layer-remote   h3{color: var(--layer-remote)}
 .findings-col h3 .n{color: var(--ink-muted); font-weight: 500; margin-left: auto; letter-spacing: 0}
 
 .f-row{
@@ -501,6 +506,84 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
   padding: 8px 0;
   font-style: italic;
 }
+.f-row .evidence-snippet{
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-muted);
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-left: 2px solid var(--hairline);
+  border-radius: 4px;
+  word-break: break-word;
+}
+.f-row .evidence-snippet .ctx{
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.f-row .evidence-snippet mark.hl{
+  background: rgba(230,43,30,0.35);
+  color: #ffd2cf;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* per-tool finding list (in 工具 tab) */
+.tf-count{
+  margin-left: 12px;
+  font-size: 11px; font-weight: 500;
+  color: var(--ink-subtle);
+  letter-spacing: 0.4px; text-transform: uppercase;
+  font-family: var(--sans);
+}
+.tf-list{
+  margin-top: 14px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.tf-row{
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  border-left: 3px solid var(--hairline);
+}
+.tf-row:hover{background: var(--surface-3)}
+.tf-row .tf-head{display: flex; align-items: center; gap: 10px}
+.tf-row .tf-det{font-size: 12px; color: var(--ink); font-weight: 600}
+.tf-row .tf-detail{
+  margin-top: 6px;
+  font-size: 12px; line-height: 1.55;
+  color: var(--ink-muted);
+}
+.tf-row .tf-detail .ctx{
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.tf-row .tf-detail mark.hl{
+  background: rgba(230,43,30,0.35);
+  color: #ffd2cf;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.tf-row .sev{
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--pill);
+}
+.sev-critical{color: var(--sev-critical); background: rgba(230,43,30,0.10)}
+.sev-high    {color: var(--sev-high);     background: rgba(187,90,0,0.15)}
+.sev-medium  {color: var(--sev-medium);   background: rgba(255,207,37,0.10)}
+.sev-low     {color: var(--sev-low)}
+.sev-info    {color: var(--sev-info)}
+.tf-row.critical{border-left-color: var(--sev-critical)}
+.tf-row.high    {border-left-color: var(--sev-high)}
+.tf-row.medium  {border-left-color: var(--sev-medium)}
 
 /* ---------- tools list ---------- */
 .tools-list{
@@ -660,6 +743,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .fd-head .meta-item .v.layer-static   {color: var(--layer-static)}
 .fd-head .meta-item .v.layer-semantic {color: var(--layer-semantic)}
 .fd-head .meta-item .v.layer-risk     {color: var(--layer-risk)}
+.fd-head .meta-item .v.layer-remote   {color: var(--layer-remote)}
 .fd-head .meta-item .v.crit{color: var(--sev-critical)}
 .fd-head .meta-item .v.high{color: var(--sev-high)}
 .fd-head .meta-item .v.med {color: var(--sev-medium)}
@@ -815,118 +899,105 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .bd-table .declared{color: var(--ink-subtle)}
 .bd-table .actual{color: var(--ink)}
 
-/* ---------- heatmap (per-layer color intensity) ---------- */
-.heatmap-card{
-  background: var(--surface-1);
-  border: 1px solid var(--hairline-soft);
-  border-radius: var(--r-lg);
-  padding: 24px;
-  margin-top: 32px;
-  overflow-x: auto;
+/* ---------- remote list ---------- */
+.triage .head.r-head{
+  grid-template-columns: 2fr 1.4fr 1.2fr 1fr 0.8fr 1fr 0.8fr 1.2fr;
+  padding: 14px 24px;
 }
-.heatmap{
+.triage .head.r-head > div{justify-content: flex-start}
+.r-row{
   display: grid;
-  font-size: 11px;
-}
-.hm-cell{
-  border: 1px solid var(--canvas);
-  background: var(--surface-2);
-  cursor: pointer;
-  transition: outline 120ms ease;
-  border-radius: 2px;
-}
-.hm-cell:hover{outline: 2px solid var(--ink); z-index: 2; position: relative}
-/* layer-tinted intensities */
-.hm-cell.static.l1{background: rgba(255,207,37,0.18)}
-.hm-cell.static.l2{background: rgba(255,207,37,0.32)}
-.hm-cell.static.l3{background: rgba(255,207,37,0.50)}
-.hm-cell.static.l4{background: rgba(255,207,37,0.72)}
-.hm-cell.static.l5{background: rgba(255,207,37,0.92)}
-.hm-cell.semantic.l1{background: rgba(123,66,188,0.22)}
-.hm-cell.semantic.l2{background: rgba(123,66,188,0.40)}
-.hm-cell.semantic.l3{background: rgba(123,66,188,0.60)}
-.hm-cell.semantic.l4{background: rgba(123,66,188,0.80)}
-.hm-cell.semantic.l5{background: rgba(123,66,188,1.0)}
-.hm-cell.risk.l1{background: rgba(20,198,203,0.18)}
-.hm-cell.risk.l2{background: rgba(20,198,203,0.32)}
-.hm-cell.risk.l3{background: rgba(20,198,203,0.50)}
-.hm-cell.risk.l4{background: rgba(20,198,203,0.72)}
-.hm-cell.risk.l5{background: rgba(20,198,203,0.92)}
-
-.hm-row-label{
-  font-size: 13px; font-weight: 500;
-  color: var(--ink);
-  white-space: nowrap;
-  padding: 0 16px 0 0;
-  display: flex; align-items: center; justify-content: flex-end;
-  font-family: var(--mono);
-}
-.hm-row-label.benign{color: var(--ink-subtle)}
-.hm-col-label{
-  font-size: 10px; font-weight: 500;
-  color: var(--ink-muted);
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  padding: 8px 0 0 0;
-  letter-spacing: 0.2px;
-  font-family: var(--mono);
-}
-.hm-legend{
-  display: flex; gap: 24px; flex-wrap: wrap;
-  margin-top: 20px;
-  font-size: 12px; color: var(--ink-muted);
-}
-.hm-legend .leg{display: flex; align-items: center; gap: 8px}
-.hm-legend .leg .sw{width: 14px; height: 14px; border-radius: 3px}
-.hm-legend .leg.layer-static   .sw{background: var(--layer-static)}
-.hm-legend .leg.layer-semantic .sw{background: var(--layer-semantic)}
-.hm-legend .leg.layer-risk     .sw{background: var(--layer-risk)}
-
-/* ---------- recall bars ---------- */
-.recall-card{
-  background: var(--surface-1);
-  border: 1px solid var(--hairline-soft);
-  border-radius: var(--r-lg);
-  padding: 24px;
-  margin-top: 32px;
-}
-.recall-row{
-  display: grid;
-  grid-template-columns: 240px 1fr 1fr;
+  grid-template-columns: 2fr 1.4fr 1.2fr 1fr 0.8fr 1fr 0.8fr 1.2fr;
   gap: 16px;
-  font-size: 13px;
-  padding: 8px 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--hairline-soft);
+  cursor: pointer;
   align-items: center;
+  font-size: 13px;
 }
-.recall-row .det{
-  color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  font-family: var(--mono);
+.r-row:last-child{border-bottom: 0}
+.r-row:hover{background: var(--surface-2)}
+.r-row .canonical{font-weight: 600; color: var(--ink); font-size: 14px}
+.r-row .endpoint{font-size: 11px; word-break: break-all; margin-top: 2px}
+.r-row .r-status{display: flex; gap: 6px; flex-wrap: wrap}
+.r-row .r-tools, .r-row .r-findings{font-variant-numeric: tabular-nums}
+
+/* ---------- remote observation card (server-detail tab) ---------- */
+.ro-list{display: flex; flex-direction: column; gap: 24px}
+.ro-card{
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-lg);
+  padding: 24px;
 }
-.recall-row .bar{
-  position: relative; height: 24px;
+.ro-head{
+  display: flex; justify-content: space-between; align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--hairline-soft);
+  margin-bottom: 20px;
+}
+.ro-when{
+  font-family: var(--mono); font-size: 13px; color: var(--ink-muted);
+}
+.ro-pills{display: flex; gap: 6px}
+.ro-error{
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: rgba(230,43,30,0.10);
+  border-left: 3px solid var(--error);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.ro-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.ro-section{
   background: var(--surface-2);
-  border-radius: var(--pill);
-  overflow: hidden;
+  border-radius: var(--r-md);
+  padding: 16px;
 }
-.recall-row .bar .fill{
-  position: absolute; left: 0; top: 0; bottom: 0;
-  background: var(--success);
-  border-radius: var(--pill);
-}
-.recall-row .bar.fp .fill{background: var(--sev-critical)}
-.recall-row .bar .num{
-  position: absolute;
-  right: 12px; top: 50%; transform: translateY(-50%);
-  color: var(--ink); font-size: 12px; font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.recall-row.h{padding-bottom: 12px; border-bottom: 1px solid var(--hairline-soft); margin-bottom: 8px}
-.recall-row .h-cell{
+.ro-label{
   font-size: 11px; font-weight: 600;
   letter-spacing: 0.6px; text-transform: uppercase;
   color: var(--ink-subtle);
+  margin-bottom: 12px;
 }
+.ro-flags{display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px}
+.ro-flags:last-child{margin-bottom: 0}
+.ro-kv{
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  row-gap: 6px; column-gap: 12px;
+  margin: 0;
+  font-size: 13px;
+  align-items: baseline;
+}
+.ro-kv dt{
+  color: var(--ink-subtle);
+  text-transform: lowercase;
+  font-size: 11px; letter-spacing: 0.4px;
+}
+.ro-kv dd{
+  margin: 0;
+  color: var(--ink-muted);
+  word-break: break-all;
+}
+.ro-tools{
+  list-style: none;
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 360px; overflow-y: auto;
+}
+.ro-tools li{
+  font-size: 13px;
+  padding: 8px 10px;
+  background: var(--surface-1);
+  border-radius: var(--r-md);
+}
+.ro-tools li .subtle{margin-top: 3px; font-size: 12px; line-height: 1.4}
 
 /* ---------- empty state ---------- */
 .empty-state{
@@ -1031,6 +1102,7 @@ button{font: inherit; color: inherit; background: transparent; border: 0; cursor
 .why-card.layer-static   {border-left-color: var(--layer-static)}
 .why-card.layer-semantic {border-left-color: var(--layer-semantic)}
 .why-card.layer-risk     {border-left-color: var(--layer-risk)}
+.why-card.layer-remote   {border-left-color: var(--layer-remote)}
 .why-card .why-eyebrow{
   font-size: 12px; font-weight: 600;
   letter-spacing: 0.6px; text-transform: uppercase;
@@ -1247,8 +1319,8 @@ details.raw-json .json{margin-top: 16px}
 <header class="topnav">
   <span class="brand">MTA<span class="slash">/</span>威胁情报</span>
   <nav class="nav">
-    <a href="#triage" data-nav="triage">待审队列</a>
-    <a href="#corpus" data-nav="corpus">总览</a>
+    <a href="#servers" data-nav="servers">MCP 服务器</a>
+    <a href="#remote" data-nav="remote">Remote MCP 服务器</a>
   </nav>
   <div class="status">
     <span class="dot"></span>
@@ -1286,7 +1358,8 @@ async function boot(){
 
 // build lookup maps once
 const IDX = {byServer: {}, findingsByServer: {}, llmById: {}, toolsByServer: {},
-             capsByTool: {}, summaryByServer: {}, historyByServer: {}, findingById: {}};
+             capsByTool: {}, summaryByServer: {}, historyByServer: {}, findingById: {},
+             observationsByServer: {}};
 function indexData(){
   for (const s of DATA.servers) IDX.byServer[s.id] = s;
   for (const f of DATA.findings){
@@ -1300,6 +1373,13 @@ function indexData(){
   for (const h of DATA.risk_history) (IDX.historyByServer[h.server_id] ??= []).push(h);
   for (const k of Object.keys(IDX.historyByServer)){
     IDX.historyByServer[k].sort((a,b)=> new Date(a.scored_at) - new Date(b.scored_at));
+  }
+  for (const o of (DATA.remote_observations || [])){
+    (IDX.observationsByServer[o.server_id] ??= []).push(o);
+  }
+  // Newest observation first
+  for (const k of Object.keys(IDX.observationsByServer)){
+    IDX.observationsByServer[k].sort((a,b)=> new Date(b.probed_at) - new Date(a.probed_at));
   }
 }
 
@@ -1324,17 +1404,18 @@ function countByPriority(){
 
 // ----- routing --------------------------------------------------------------
 function route(){
-  const raw = location.hash.replace(/^#/, '') || 'triage';
+  const raw = location.hash.replace(/^#/, '') || 'servers';
   const [path, _q] = raw.split('?');
   const [page, ...rest] = path.split('/');
   document.querySelectorAll('.topnav .nav a').forEach(a =>
     a.classList.toggle('active', a.dataset.nav === page || (page.startsWith('server') && a.dataset.nav==='triage') || (page.startsWith('finding') && a.dataset.nav==='triage')));
   switch(page){
-    case 'triage': return renderTriage();
+    case 'servers': return renderServersList();
+    case 'triage': return renderServersList();   // legacy hash redirect
     case 'server': return renderServer(rest[0]);
     case 'finding': return renderFinding(rest[0]);
-    case 'corpus': return renderCorpus();
-    default: return renderTriage();
+    case 'remote': return renderRemoteList();
+    default: return renderServersList();
   }
 }
 
@@ -1459,6 +1540,24 @@ const RULE_DOCS = {
     title: '不可信内容未标记',
     why: '某工具从网络源、文件或其它外部输入读取并返回结果，但没有添加 `untrusted_content` 注解，下游 agent 因此无法对其施加隔离。缺少该标记，LLM 就会把攻击者提供的字节当作权威数据对待。',
   },
+
+  // ---- remote_analysis (P1) ----
+  'remote:tls-self-signed': {
+    title: 'TLS 证书未被公共 CA 链签发',
+    why: '该 endpoint 使用自签或私有 CA 签发的证书，浏览器/默认信任库会拒绝。在缺少真实证书校验的情况下，路径上的中间方可以无声替换响应——把任意工具描述塞进客户端，构成最直接的提示注入路径。',
+  },
+  'remote:tls-near-expiry': {
+    title: 'TLS 证书即将过期',
+    why: '证书剩余有效期不足 30 天（≤7 天判 high）。一旦过期，全部连接会失败，所有依赖该 MCP 的 agent 都会断流；过期后短窗口被无察觉续签为攻击者证书的风险也明显上升。',
+  },
+  'remote:auth-missing': {
+    title: 'tools/list 未要求鉴权',
+    why: '没有 Authorization / API-key 头的探测仍然成功返回了非空工具列表，且 endpoint 不在回环地址。工具描述本身就是提示注入面——把它对公网开放，意味着任何路过者都能读到，也意味着可以在不持有凭证的情况下投递经过精心设计的描述给依赖该服务器的 agent。',
+  },
+  'remote:protocol-version-mismatch': {
+    title: '上报的 MCP 协议版本不在已知列表中',
+    why: '服务器返回的 `protocolVersion` 不属于 MTA 已记录的发布版本集合。可能是拼写错误、私有分叉、或预发布；本身不一定是攻击，但值得人工瞄一眼，避免后续解析按错版本走。',
+  },
 };
 
 // Detector class taxonomy used for filtering
@@ -1472,13 +1571,14 @@ function classifyDetector(detector){
   if (detector.startsWith('char:'))             return 'char';
   if (detector.startsWith('llm:'))              return 'llm';
   if (detector.startsWith('untrusted-content:'))return 'untrusted';
+  if (detector.startsWith('remote:') || detector.startsWith('remote-drift:')) return 'remote';
   return 'other';
 }
 
 const DETECTOR_CLASS_LABEL = {
-  semgrep: 'Semgrep 规则', shadow: '影子 / 仿冒', 'toxic-flow': '毒流',
+  semgrep: 'Semgrep 规则', shadow: '影子 / 仿冒', 'toxic-flow': '高危数据流',
   tpa: 'TPA', llm: 'LLM 判定', char: '字符级', untrusted: '不可信内容',
-  manifest: '清单文件', other: '其他',
+  manifest: '清单文件', remote: '远程探测', other: '其他',
 };
 
 // Pull the bare rule key out of evidence (last segment of rule_id, or the detector itself)
@@ -1516,6 +1616,87 @@ function whyFlagged(f){
 // One-line summary for use in finding cards / lists.
 function whySummary(f){
   return whyFlagged(f).title;
+}
+
+// Render a concrete evidence snippet (the *what*, not the *why*).
+// Returns HTML — short, inline, safe to drop into a row. May be empty.
+function whyDetail(f){
+  const ev = f.evidence || {};
+  const det = f.detector || '';
+
+  if (det === 'char:hidden-unicode'){
+    const ctx = ev.context || '';
+    const pos = typeof ev.pos === 'number' ? ev.pos : -1;
+    const cp  = ev.codepoint ? `U+${String(ev.codepoint).replace(/^0x/i,'').toUpperCase().padStart(4,'0')}` : '?';
+    const name = ev.name || '?';
+    const field = ev.field || '?';
+    let snippet = escapeHtml(ctx);
+    if (pos >= 0 && pos < ctx.length){
+      const before = escapeHtml(ctx.slice(0, pos));
+      const at     = escapeHtml(ctx.slice(pos, pos+1)) || '·';
+      const after  = escapeHtml(ctx.slice(pos+1));
+      snippet = `${before}<mark class="hl">[${at}]</mark>${after}`;
+    }
+    return `${field} 第 ${pos} 字符 · <span class="mono">${cp}</span> ${escapeHtml(name)}<div class="ctx mono">…${snippet}…</div>`;
+  }
+
+  if (det === 'shadow:name-collision'){
+    return `工具名 <span class="mono">${escapeHtml(ev.tool_name||'?')}</span> 与 server <span class="mono">${escapeHtml(shortId(ev.match_server_id))}</span> 的 <span class="mono">${escapeHtml(ev.match_name||'?')}</span> 撞名`;
+  }
+  if (det === 'shadow:semantic-clone'){
+    const sim = (typeof ev.similarity === 'number') ? ev.similarity.toFixed(3) : '?';
+    return `与 server <span class="mono">${escapeHtml(shortId(ev.match_server_id))}</span> 的 <span class="mono">${escapeHtml(ev.match_name||'?')}</span> 描述余弦相似度 ${sim}`;
+  }
+
+  if (det === 'untrusted-content:unmarked'){
+    return escapeHtml(ev.reason || '工具返回外部内容但未带 untrusted 注解');
+  }
+
+  if (det === 'tpa-llm'){
+    const cat = ev.category ? `<span class="cap">${escapeHtml(ev.category)}</span>` : '';
+    const reason = ev.rationale ? escapeHtml(String(ev.rationale).slice(0, 200)) : '';
+    return `${cat}${reason ? ` ${reason}` : ''}`;
+  }
+
+  if (det.startsWith('tpa-rule:') || det === 'tpa-rule'){
+    const phr = ev.matched_phrase || ev.phrase || ev.match || '';
+    return phr ? `命中短语：<span class="mono">${escapeHtml(phr.slice(0,120))}</span>` : '';
+  }
+
+  if (det === 'llm:schema-code-inconsistency'){
+    const cat = ev.category ? `<span class="cap">${escapeHtml(ev.category)}</span>` : '';
+    const r = ev.rationale ? escapeHtml(String(ev.rationale).slice(0,200)) : '';
+    return `${cat}${r ? ` ${r}` : ''}`;
+  }
+
+  if (det.startsWith('semgrep:')){
+    const file = ev.file || ev.path || '';
+    const line = ev.line || ev.start_line || '';
+    const code = ev.match || ev.snippet || '';
+    let head = '';
+    if (file) head = `<span class="mono">${escapeHtml(file)}${line?':'+line:''}</span>`;
+    return `${head}${code ? `<div class="ctx mono">${escapeHtml(String(code).slice(0,180))}</div>` : ''}`;
+  }
+
+  if (det === 'manifest:install-hook-network-or-exec'){
+    return `钩子 <span class="mono">${escapeHtml(ev.hook||'?')}</span>: <span class="mono">${escapeHtml((ev.cmd||'').slice(0,160))}</span>`;
+  }
+
+  if (det === 'remote:tls-self-signed'){
+    return `subject==issuer · <span class="mono">${escapeHtml(ev.subject||'?')}</span>`;
+  }
+  if (det === 'remote:tls-near-expiry'){
+    const d = ev.days_until_expiry;
+    return `${d < 0 ? '已过期 ' + Math.abs(d) + ' 天' : `${d} 天后过期`} · not_after <span class="mono">${escapeHtml(ev.not_after||'?')}</span>`;
+  }
+  if (det === 'remote:auth-missing'){
+    return `<span class="mono">${escapeHtml(ev.host||'?')}</span> · 未持凭据即可读取 ${ev.tools_count||'?'} 个工具描述`;
+  }
+  if (det === 'remote:protocol-version-mismatch'){
+    return `服务器报告 <span class="mono">${escapeHtml(ev.reported||'?')}</span>，已知集合 <span class="mono">${escapeHtml((ev.known||[]).join(', '))}</span>`;
+  }
+
+  return '';
 }
 
 // ----- per-class evidence renderers ----------------------------------------
@@ -1747,42 +1928,46 @@ async function autoFetchSnippet(blockId, repoPath, line){
   }
 }
 
-// ----- screen 1: triage queue ----------------------------------------------
-const TRIAGE_FILTER = {priority: 'all', layer: 'all', cls: 'all', q: ''};
+// ----- screen 1: servers list ----------------------------------------------
+const SERVERS_FILTER = {priority: 'all', layer: 'all', cls: 'all', q: ''};
 
-function renderTriage(){
+function renderServersList(){
   const root = document.getElementById('root');
-  const counts = countByPriority();
-  const allPending = DATA.triage.filter(t => t.status === 'pending');
-  allPending.sort((a,b)=>{
-    const order = {P0:0,P1:1,P2:2,P3:3};
-    if (order[a.priority] !== order[b.priority]) return order[a.priority] - order[b.priority];
-    const sa = IDX.byServer[a.server_id]?.risk_score ?? 0;
-    const sb = IDX.byServer[b.server_id]?.risk_score ?? 0;
-    return sb - sa;
-  });
+  const all = DATA.servers.slice().sort((a,b)=>(b.risk_score ?? -1) - (a.risk_score ?? -1));
+  const pendingByServer = {};
+  for (const t of DATA.triage){
+    if (t.status === 'pending') pendingByServer[t.server_id] = t;
+  }
 
-  // Build set of detector classes actually present
   const presentClasses = new Set();
   for (const f of DATA.findings){
     if (f.status === 'active') presentClasses.add(classifyDetector(f.detector));
   }
-  const classChips = ['semgrep','shadow','toxic-flow','tpa','llm','char','untrusted','manifest']
+  const classChips = ['semgrep','shadow','toxic-flow','tpa','llm','char','untrusted','manifest','remote']
     .filter(c => presentClasses.has(c))
     .map(c => `<span class="chip" data-cls="${c}">${DETECTOR_CLASS_LABEL[c]||c}</span>`)
     .join('');
 
+  // Counts: total servers per priority bucket (using server.risk_priority)
+  const priCount = {P0:0, P1:0, P2:0, P3:0};
+  for (const s of all){
+    if (s.risk_priority && priCount[s.risk_priority] !== undefined) priCount[s.risk_priority] += 1;
+  }
+  const pendingCount = Object.keys(pendingByServer).length;
+
   root.innerHTML = `
-    <div class="eyebrow"><span class="dot"></span>实时队列</div>
-    <h1 class="t-display-md" style="margin:0">待审队列</h1>
-    <div class="sub-meta" style="margin-top:12px"><span id="match-count">${allPending.length}</span> 条待处理 · 排序：优先级 ↑ · 分数 ↓</div>
+    <div class="eyebrow"><span class="dot"></span>已追踪</div>
+    <h1 class="t-display-md" style="margin:0">MCP 服务器</h1>
+    <div class="sub-meta" style="margin-top:12px">
+      共 <span id="match-count">${all.length}</span> 台 · 按风险分排序 · ${pendingCount} 台待审
+    </div>
 
     <div class="counters">
-      <div class="counter crit"><div class="label">P0 严重</div><div class="num" id="ct-P0">${counts.P0}</div><div class="delta" id="ct-P0-d">需立即处理</div></div>
-      <div class="counter warn"><div class="label">P1 高</div><div class="num" id="ct-P1">${counts.P1}</div><div class="delta" id="ct-P1-d">24 小时内处理</div></div>
-      <div class="counter"><div class="label">P2 中</div><div class="num" id="ct-P2">${counts.P2}</div><div class="delta" id="ct-P2-d">批量审查</div></div>
-      <div class="counter"><div class="label">P3 提示</div><div class="num" id="ct-P3">${counts.P3}</div><div class="delta" id="ct-P3-d">无需处理</div></div>
-      <div class="counter"><div class="label">语料库</div><div class="num" id="ct-corpus">${DATA.servers.length}</div><div class="delta" id="ct-corpus-d">已追踪服务器</div></div>
+      <div class="counter crit"><div class="label">P0 严重</div><div class="num" id="ct-P0">${priCount.P0}</div><div class="delta" id="ct-P0-d">需立即处理</div></div>
+      <div class="counter warn"><div class="label">P1 高</div><div class="num" id="ct-P1">${priCount.P1}</div><div class="delta" id="ct-P1-d">24 小时内处理</div></div>
+      <div class="counter"><div class="label">P2 中</div><div class="num" id="ct-P2">${priCount.P2}</div><div class="delta" id="ct-P2-d">批量审查</div></div>
+      <div class="counter"><div class="label">P3 提示</div><div class="num" id="ct-P3">${priCount.P3}</div><div class="delta" id="ct-P3-d">无需处理</div></div>
+      <div class="counter"><div class="label">待审</div><div class="num" id="ct-pending">${pendingCount}</div><div class="delta" id="ct-pending-d">triage_queue 中</div></div>
     </div>
 
     <div class="filter-bar" id="filter-bar">
@@ -1801,6 +1986,7 @@ function renderTriage(){
         <span class="chip layer-static"   data-layer="static_analysis">static_analysis</span>
         <span class="chip layer-semantic" data-layer="semantic_analysis">semantic_analysis</span>
         <span class="chip layer-risk"     data-layer="risk_scoring">risk_scoring</span>
+        <span class="chip layer-remote"   data-layer="remote_analysis">remote_analysis</span>
       </div>
       <div class="frow">
         <span class="flabel">检测器</span>
@@ -1820,23 +2006,22 @@ function renderTriage(){
         <div>优先级</div>
         <div>活跃</div>
         <div>主要检测器</div>
-        <div>入队</div>
+        <div>更新</div>
         <div>30 天</div>
       </div>
       <div id="triage-rows"></div>
     </div>
   `;
-  applyTriageFilters(allPending);
+  applyServersFilters(all, pendingByServer);
 
-  // Chip handlers — group by data-* attribute
   const bar = document.getElementById('filter-bar');
   bar.addEventListener('click', e=>{
     const t = e.target;
     if (t.id === 'reset-filters'){
       e.preventDefault();
-      TRIAGE_FILTER.priority = 'all'; TRIAGE_FILTER.layer = 'all';
-      TRIAGE_FILTER.cls = 'all'; TRIAGE_FILTER.q = '';
-      renderTriage();
+      SERVERS_FILTER.priority = 'all'; SERVERS_FILTER.layer = 'all';
+      SERVERS_FILTER.cls = 'all'; SERVERS_FILTER.q = '';
+      renderServersList();
       return;
     }
     if (!t.classList.contains('chip')) return;
@@ -1845,82 +2030,56 @@ function renderTriage(){
     else if (t.dataset.layer !== undefined) { group = 'layer';    val = t.dataset.layer; }
     else if (t.dataset.cls !== undefined)   { group = 'cls';      val = t.dataset.cls; }
     else return;
-    TRIAGE_FILTER[group] = val;
-    // toggle active within the same group
+    SERVERS_FILTER[group] = val;
     const sel = group === 'priority' ? 'data-pri' : group === 'layer' ? 'data-layer' : 'data-cls';
     bar.querySelectorAll(`.chip[${sel}]`).forEach(c => c.classList.remove('active'));
     t.classList.add('active');
-    applyTriageFilters(allPending);
+    applyServersFilters(all, pendingByServer);
   });
   document.getElementById('filter-search').addEventListener('input', e=>{
-    TRIAGE_FILTER.q = e.target.value.trim().toLowerCase();
-    applyTriageFilters(allPending);
+    SERVERS_FILTER.q = e.target.value.trim().toLowerCase();
+    applyServersFilters(all, pendingByServer);
   });
-  document.getElementById('filter-search').value = TRIAGE_FILTER.q;
+  document.getElementById('filter-search').value = SERVERS_FILTER.q;
 }
 
-function applyTriageFilters(allPending){
-  const subset = allPending.filter(t => {
-    if (TRIAGE_FILTER.priority !== 'all' && t.priority !== TRIAGE_FILTER.priority) return false;
-    const s = IDX.byServer[t.server_id];
-    if (!s) return false;
-    if (TRIAGE_FILTER.q && !s.canonical_name.toLowerCase().includes(TRIAGE_FILTER.q)) return false;
-    if (TRIAGE_FILTER.layer !== 'all' || TRIAGE_FILTER.cls !== 'all'){
-      const fs = (IDX.findingsByServer[t.server_id]||[]).filter(f=>f.status==='active');
-      if (TRIAGE_FILTER.layer !== 'all' && !fs.some(f => f.layer === TRIAGE_FILTER.layer)) return false;
-      if (TRIAGE_FILTER.cls   !== 'all' && !fs.some(f => classifyDetector(f.detector) === TRIAGE_FILTER.cls)) return false;
+function applyServersFilters(all, pendingByServer){
+  const subset = all.filter(s => {
+    if (SERVERS_FILTER.priority !== 'all' && s.risk_priority !== SERVERS_FILTER.priority) return false;
+    if (SERVERS_FILTER.q && !s.canonical_name.toLowerCase().includes(SERVERS_FILTER.q)) return false;
+    if (SERVERS_FILTER.layer !== 'all' || SERVERS_FILTER.cls !== 'all'){
+      const fs = (IDX.findingsByServer[s.id]||[]).filter(f=>f.status==='active');
+      if (SERVERS_FILTER.layer !== 'all' && !fs.some(f => f.layer === SERVERS_FILTER.layer)) return false;
+      if (SERVERS_FILTER.cls   !== 'all' && !fs.some(f => classifyDetector(f.detector) === SERVERS_FILTER.cls)) return false;
     }
     return true;
   });
   document.getElementById('match-count').textContent = subset.length;
-
-  // Recount priorities within the filtered subset, and recount corpus coverage
-  const sc = {P0:0, P1:0, P2:0, P3:0};
-  const seenServers = new Set();
-  for (const t of subset){
-    sc[t.priority] = (sc[t.priority]||0) + 1;
-    seenServers.add(t.server_id);
-  }
-  document.getElementById('ct-P0').textContent = sc.P0;
-  document.getElementById('ct-P1').textContent = sc.P1;
-  document.getElementById('ct-P2').textContent = sc.P2;
-  document.getElementById('ct-P3').textContent = sc.P3;
-  // Corpus card: show "X / total" so the total stays anchored
-  const total = DATA.servers.length;
-  const isFiltered = TRIAGE_FILTER.priority !== 'all'
-                  || TRIAGE_FILTER.layer    !== 'all'
-                  || TRIAGE_FILTER.cls      !== 'all'
-                  || TRIAGE_FILTER.q        !== '';
-  document.getElementById('ct-corpus').textContent = isFiltered ? `${seenServers.size} / ${total}` : total;
-  document.getElementById('ct-corpus-d').textContent = isFiltered ? '过滤后 / 全部' : '已追踪服务器';
-  // dim cards that have zero matches under the active filter
-  for (const k of ['P0','P1','P2','P3']){
-    document.getElementById('ct-'+k).style.opacity = sc[k] === 0 && isFiltered ? '0.4' : '1';
-  }
-
-  renderTriageRows(subset);
+  renderServerRows(subset, pendingByServer);
 }
 
-function renderTriageRows(rows){
-  const out = rows.map(t => {
-    const s = IDX.byServer[t.server_id];
-    const score = s?.risk_score ?? 0;
-    const findings = IDX.findingsByServer[t.server_id] || [];
+function renderServerRows(rows, pendingByServer){
+  const out = rows.map(s => {
+    const score = s.risk_score ?? null;
+    const pri = s.risk_priority || '—';
+    const findings = IDX.findingsByServer[s.id] || [];
     const active = findings.filter(f=>f.status==='active');
-    const topDet = active.length
-      ? topDetector(active)
-      : '—';
-    const sparkSvg = renderSparkline(IDX.historyByServer[t.server_id] || []);
-    const cls = `row ${t.priority.toLowerCase()} ${score >= 50 ? 'high-score' : ''}`;
+    const topDet = active.length ? topDetector(active) : '—';
+    const sparkSvg = renderSparkline(IDX.historyByServer[s.id] || []);
+    const pendingPill = pendingByServer[s.id]
+      ? '<span class="cap" style="background:rgba(230,43,30,0.18);color:#ffb1ab;margin-left:8px">待审</span>'
+      : '';
+    const cls = `row ${pri.toLowerCase()} ${(score ?? 0) >= 50 ? 'high-score' : ''}`;
+    const when = s.risk_updated_at ? relativeTime(new Date(s.risk_updated_at)) : '—';
     return `
-      <div class="${cls}" data-sid="${t.server_id}">
+      <div class="${cls}" data-sid="${s.id}">
         <div class="strip"></div>
-        <div class="name">${t.canonical_name}</div>
+        <div class="name">${escapeHtml(s.canonical_name)}${pendingPill}</div>
         <div class="score">${formatScore(score)}</div>
-        <div class="pri">${t.priority}</div>
+        <div class="pri">${pri}</div>
         <div class="findings-n">${active.length}</div>
         <div class="det">${escapeHtml(topDet)}</div>
-        <div class="when">${relativeTime(new Date(t.enqueued_at))}</div>
+        <div class="when">${when}</div>
         <div class="spark">${sparkSvg}</div>
       </div>
     `;
@@ -1945,6 +2104,7 @@ function sevWeight(s){
 const SEV_CN = {critical:'严重', high:'高', medium:'中', low:'低', info:'提示'};
 
 function layerKey(layer){
+  if (layer === 'remote_analysis') return 'remote';
   if (layer === 'static_analysis') return 'static';
   if (layer === 'semantic_analysis') return 'semantic';
   if (layer === 'risk_scoring') return 'risk';
@@ -1988,19 +2148,27 @@ function renderServer(sid){
     ['static_analysis','static_analysis','static'],
     ['semantic_analysis','semantic_analysis','semantic'],
     ['risk_scoring','risk_scoring','risk'],
+    ['remote_analysis','remote_analysis','remote'],
   ].map(([k,label,key]) => layersPresent.has(k)
     ? `<span class="lpill layer-${key}">${label}</span>`
     : `<span class="lpill">${label}</span>`
   ).join('');
 
+  // Transport pill — when this server has at least one remote_observations row
+  const obs = (IDX.observationsByServer && IDX.observationsByServer[sid]) || [];
+  const lastObs = obs[0];
+  const transportPill = lastObs
+    ? `<span class="lpill transport" title="${escapeHtml(lastObs.endpoint||'')}">REMOTE · ${escapeHtml(lastObs.transport||'?')}</span>`
+    : '';
+
   root.innerHTML = `
-    <nav class="crumb"><a href="#triage">待审队列</a><span class="arrow">/</span> 服务器</nav>
+    <nav class="crumb"><a href="#servers">MCP 服务器</a><span class="arrow">/</span> ${escapeHtml(s.canonical_name)}</nav>
 
     <div class="srv-head">
       <div>
         <div class="eyebrow">服务器 · ${pri}</div>
         <div class="name">${escapeHtml(s.canonical_name)}</div>
-        <div class="layer-pills">${layerPills}</div>
+        <div class="layer-pills">${transportPill}${layerPills}</div>
         <div class="desc">${s.id} · 状态: ${escapeHtml(s.status||'active')} · weights: ${escapeHtml(s.weights_version||'v0')}</div>
       </div>
       <div class="score-block">
@@ -2015,6 +2183,7 @@ function renderServer(sid){
       <a class="tab ${tab==='tools'?'active':''}" href="#server/${sid}?tab=tools">工具 <span class="n">${(IDX.toolsByServer[sid]||[]).length}</span></a>
       <a class="tab ${tab==='history'?'active':''}" href="#server/${sid}?tab=history">历史 <span class="n">${(IDX.historyByServer[sid]||[]).length}</span></a>
       <a class="tab ${tab==='static'?'active':''}" href="#server/${sid}?tab=static">静态摘要</a>
+      ${obs.length ? `<a class="tab ${tab==='remote'?'active':''}" href="#server/${sid}?tab=remote">远程探测 <span class="n">${obs.length}</span></a>` : ''}
     </div>
 
     <div id="server-tab"></div>
@@ -2028,16 +2197,21 @@ function renderServerTab(sid, tab){
     case 'tools': return node.innerHTML = renderTools(sid);
     case 'history': return node.innerHTML = renderHistory(sid);
     case 'static': return node.innerHTML = renderStaticSummary(sid);
+    case 'remote': return node.innerHTML = renderRemoteObservations(sid);
     default: return node.innerHTML = renderFindingsByLayer(sid);
   }
 }
 
 function renderFindingsByLayer(sid){
   const findings = (IDX.findingsByServer[sid] || []).filter(f=>f.status==='active');
+  // Show the remote column only when this server actually has remote findings or observations
+  const hasRemote = findings.some(f => f.layer === 'remote_analysis')
+                 || (IDX.observationsByServer[sid]||[]).length > 0;
   const layers = [
     ['static_analysis','static'],
     ['semantic_analysis','semantic'],
     ['risk_scoring','risk'],
+    ...(hasRemote ? [['remote_analysis','remote']] : []),
   ];
   const cols = layers.map(([L, key]) => {
     const list = findings.filter(f=>f.layer===L)
@@ -2051,11 +2225,13 @@ function renderFindingsByLayer(sid){
       </div>
     `;
   }).join('');
-  return `<div class="findings-grid">${cols}</div>`;
+  const cols_n = layers.length;
+  return `<div class="findings-grid" style="grid-template-columns: repeat(${cols_n}, 1fr)">${cols}</div>`;
 }
 
 function fRow(f){
   const summary = whySummary(f);
+  const detail = whyDetail(f);
   const tool = f.evidence?.tool_name || '';
   const conf = f.confidence ? `${f.confidence.toFixed(2)}` : '';
   const sevCN = SEV_CN[f.severity] || f.severity;
@@ -2068,6 +2244,7 @@ function fRow(f){
       <div class="det">${escapeHtml(f.detector)}</div>
       ${tool ? `<div class="meta">tool: ${escapeHtml(tool)}</div>`:''}
       <div class="reason">${escapeHtml(summary)}</div>
+      ${detail ? `<div class="evidence-snippet">${detail}</div>` : ''}
     </div>
   `;
 }
@@ -2075,24 +2252,38 @@ function fRow(f){
 function renderTools(sid){
   const tools = (IDX.toolsByServer[sid] || []).sort((a,b)=>a.name.localeCompare(b.name));
   if (!tools.length) return `<div class="empty-state">未发现工具记录</div>`;
-  const findings = IDX.findingsByServer[sid] || [];
+  const allFindings = (IDX.findingsByServer[sid] || []).filter(f => f.status === 'active');
+
   const html = tools.map(t => {
     const caps = IDX.capsByTool[t.id]?.capabilities || [];
-    const shadowFindings = findings.filter(f=>
-      f.detector?.startsWith('shadow:') && f.evidence?.tool_name === t.name);
-    const shadowText = shadowFindings.length
-      ? shadowFindings.slice(0,3).map(f=>`<div><b>仿冒</b> ${escapeHtml(f.evidence?.match_name || '?')}@${escapeHtml(shortId(f.evidence?.match_server_id))}</div>`).join('')
-      : '<div class="subtle">—</div>';
+    const tFindings = allFindings.filter(f => f.evidence?.tool_name === t.name)
+      .sort((a,b)=> sevWeight(b.severity) - sevWeight(a.severity));
+
+    const findingPills = tFindings.length
+      ? tFindings.map(f => {
+          const sevCN = SEV_CN[f.severity] || f.severity;
+          const detail = whyDetail(f);
+          return `
+            <div class="tf-row ${f.severity}" data-fid="${f.id}" onclick="event.stopPropagation(); location.hash='finding/${f.id}'">
+              <div class="tf-head">
+                <span class="sev sev-${f.severity}">${sevCN}</span>
+                <span class="tf-det mono">${escapeHtml(f.detector)}</span>
+              </div>
+              ${detail ? `<div class="tf-detail">${detail}</div>` : ''}
+            </div>`;
+        }).join('')
+      : '<div class="subtle" style="font-size:13px">无关联 finding</div>';
+
     return `
-      <div class="t-row">
+      <div class="t-row" style="grid-template-columns: 1fr">
         <div>
-          <div class="t-name">${escapeHtml(t.name)}</div>
+          <div class="t-name">${escapeHtml(t.name)}<span class="tf-count">${tFindings.length} 条 finding</span></div>
           <div class="t-desc">${escapeHtml(t.description || '<无描述>')}</div>
           <div class="t-caps">
             ${caps.length ? caps.map(c=>`<span class="cap">${escapeHtml(c)}</span>`).join('') : '<span class="cap faint">未分类能力</span>'}
           </div>
+          <div class="tf-list">${findingPills}</div>
         </div>
-        <div class="t-shadow">${shadowText}</div>
       </div>
     `;
   }).join('');
@@ -2170,6 +2361,189 @@ function renderStaticSummary(sid){
   `;
 }
 
+function renderRemoteList(){
+  const root = document.getElementById('root');
+  const sids = Object.keys(IDX.observationsByServer || {});
+  const entries = sids.map(sid => ({
+    sid,
+    server: IDX.byServer[sid],
+    obs: (IDX.observationsByServer[sid] || [])[0],
+  })).filter(e => e.server && e.obs);
+
+  entries.sort((a,b) => {
+    if (a.obs.ok !== b.obs.ok) return a.obs.ok ? 1 : -1;
+    return new Date(b.obs.probed_at) - new Date(a.obs.probed_at);
+  });
+
+  const okCount = entries.filter(e => e.obs.ok).length;
+  const failCount = entries.length - okCount;
+
+  const rows = entries.map(({sid, server, obs}) => {
+    const okCell = obs.ok
+      ? '<span class="cap" style="background:rgba(0,202,142,0.14);color:#00ca8e">ok</span>'
+      : '<span class="cap" style="background:rgba(230,43,30,0.18);color:#ffb1ab">失败</span>';
+    const tlsFlag = obs.tls?.self_signed
+      ? '<span class="cap" style="background:rgba(230,43,30,0.18);color:#ffb1ab">TLS 自签</span>'
+      : '';
+    const nTools = Array.isArray(obs.tools) ? obs.tools.length : 0;
+    const when = relativeTime(new Date(obs.probed_at));
+    const findings = (IDX.findingsByServer[sid] || []).filter(f=>f.status==='active' && f.layer==='remote_analysis');
+    return `
+      <div class="r-row" data-sid="${sid}">
+        <div class="r-name">
+          <div class="canonical">${escapeHtml(server.canonical_name)}</div>
+          <div class="endpoint mono subtle">${escapeHtml(obs.endpoint || '?')}</div>
+        </div>
+        <div class="r-status">${okCell}${tlsFlag}</div>
+        <div class="r-proto mono">${escapeHtml(obs.protocol_ver || '—')}</div>
+        <div class="r-auth"><span class="cap">${escapeHtml(obs.auth_kind || 'unknown')}</span></div>
+        <div class="r-tools mono">${nTools}</div>
+        <div class="r-findings">${findings.length}</div>
+        <div class="r-lat mono">${typeof obs.latency_ms === 'number' ? obs.latency_ms+' ms' : '—'}</div>
+        <div class="r-when subtle">${when}</div>
+      </div>
+    `;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="eyebrow"><span class="dot"></span>已探测</div>
+    <h1 class="t-display-md" style="margin:0">Remote MCP 服务器</h1>
+    <div class="sub-meta" style="margin-top:12px">
+      ${entries.length} 台已探测 · ${okCount} 可达 · ${failCount} 失败 · 点击行进入服务器详情的 <span class="mono">远程探测</span> tab
+    </div>
+
+    <div class="triage" style="margin-top:32px">
+      <div class="head r-head">
+        <div>服务器 / endpoint</div>
+        <div>状态</div>
+        <div>protocol</div>
+        <div>auth</div>
+        <div>tools</div>
+        <div>remote 发现</div>
+        <div>延迟</div>
+        <div>最近探测</div>
+      </div>
+      <div id="remote-rows">
+        ${entries.length ? rows : '<div class="empty-state">尚未运行 mta-remote scan</div>'}
+      </div>
+    </div>
+  `;
+
+  document.querySelectorAll('.r-row').forEach(r =>
+    r.addEventListener('click', ()=> location.hash = `server/${r.dataset.sid}?tab=remote`));
+}
+
+function renderRemoteObservations(sid){
+  const obs = (IDX.observationsByServer[sid] || []);
+  if (!obs.length) return `<div class="empty-state">尚未对此服务器执行远程探测</div>`;
+
+  const okBadge = (ok) => ok
+    ? '<span class="cap" style="background:rgba(0,202,142,0.14);color:#00ca8e">ok</span>'
+    : '<span class="cap" style="background:rgba(230,43,30,0.18);color:#ffb1ab">失败</span>';
+
+  const tlsSection = (tls) => {
+    if (!tls) return `
+      <div class="ro-section">
+        <div class="ro-label">TLS 证书</div>
+        <div class="subtle">未捕获</div>
+      </div>`;
+    const flags = [];
+    if (tls.self_signed) flags.push('<span class="cap" style="background:rgba(230,43,30,0.18);color:#ffb1ab">自签名</span>');
+    if (typeof tls.days_until_expiry === 'number'){
+      const d = tls.days_until_expiry;
+      const style = d < 0 ? 'background:rgba(230,43,30,0.18);color:#ffb1ab'
+                  : d < 30 ? 'background:rgba(255,207,37,0.16);color:#ffcf25'
+                  : 'background:rgba(0,202,142,0.14);color:#00ca8e';
+      flags.push(`<span class="cap" style="${style}">${d < 0 ? '已过期' : `剩 ${d} 天`}</span>`);
+    }
+    const sans = (tls.san || []).slice(0,6).map(escapeHtml).join(', ');
+    return `
+      <div class="ro-section">
+        <div class="ro-label">TLS 证书</div>
+        <div class="ro-flags">${flags.join('')}</div>
+        <dl class="ro-kv">
+          <dt>subject</dt>     <dd class="mono">${escapeHtml(tls.subject || '?')}</dd>
+          <dt>issuer</dt>      <dd class="mono">${escapeHtml(tls.issuer  || '?')}</dd>
+          <dt>not_before</dt>  <dd class="mono">${escapeHtml(tls.not_before || '?')}</dd>
+          <dt>not_after</dt>   <dd class="mono">${escapeHtml(tls.not_after  || '?')}</dd>
+          ${sans ? `<dt>SAN</dt><dd class="mono">${sans}</dd>` : ''}
+          <dt>sha256</dt>      <dd class="mono">${escapeHtml((tls.sha256||'').slice(0,32))}…</dd>
+        </dl>
+      </div>`;
+  };
+
+  const overviewSection = (o) => {
+    const si = o.server_info || {};
+    const siText = (si.name || si.version)
+      ? `${escapeHtml(si.name||'?')} <span class="subtle">v${escapeHtml(si.version||'?')}</span>`
+      : '<span class="subtle">未声明</span>';
+    return `
+      <div class="ro-section">
+        <div class="ro-label">概览</div>
+        <dl class="ro-kv">
+          <dt>endpoint</dt>     <dd class="mono">${escapeHtml(o.endpoint || '?')}</dd>
+          <dt>transport</dt>    <dd class="mono">${escapeHtml(o.transport || '?')}</dd>
+          <dt>protocol_ver</dt> <dd class="mono">${escapeHtml(o.protocol_ver || '—')}</dd>
+          <dt>auth_kind</dt>    <dd class="mono">${escapeHtml(o.auth_kind || 'unknown')}</dd>
+          <dt>latency</dt>      <dd class="mono">${typeof o.latency_ms === 'number' ? o.latency_ms+' ms' : '—'}</dd>
+          <dt>server_info</dt>  <dd>${siText}</dd>
+        </dl>
+      </div>`;
+  };
+
+  const capsSection = (caps) => {
+    const keys = (caps && typeof caps === 'object') ? Object.keys(caps) : [];
+    return `
+      <div class="ro-section">
+        <div class="ro-label">capabilities</div>
+        <div class="ro-flags">${
+          keys.length
+            ? keys.map(k => `<span class="cap">${escapeHtml(k)}</span>`).join('')
+            : '<span class="subtle">—</span>'
+        }</div>
+      </div>`;
+  };
+
+  const toolsSection = (tools) => {
+    const arr = Array.isArray(tools) ? tools : [];
+    return `
+      <div class="ro-section">
+        <div class="ro-label">tools/list <span class="subtle" style="font-weight:400">${arr.length} 条</span></div>
+        ${arr.length
+          ? `<ul class="ro-tools">${arr.slice(0,50).map(t => {
+              const name = escapeHtml(t.name || '?');
+              const desc = escapeHtml((t.description || '').replace(/\s+/g,' ').slice(0,180));
+              return `<li><span class="mono">${name}</span>${desc?`<div class="subtle">${desc}</div>`:''}</li>`;
+            }).join('')}</ul>`
+          : '<div class="subtle">无</div>'}
+      </div>`;
+  };
+
+  const cards = obs.map(o => {
+    const when = new Date(o.probed_at).toISOString().replace('T',' ').slice(0,19);
+    const errBlock = o.error
+      ? `<div class="ro-error"><b>error</b> · <span class="mono">${escapeHtml(o.error)}</span></div>`
+      : '';
+    return `
+      <div class="ro-card">
+        <div class="ro-head">
+          <div class="ro-when">${when} UTC</div>
+          <div class="ro-pills">${okBadge(o.ok)}</div>
+        </div>
+        ${errBlock}
+        <div class="ro-grid">
+          ${overviewSection(o)}
+          ${tlsSection(o.tls)}
+          ${capsSection(o.capabilities)}
+          ${toolsSection(o.tools)}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `<div class="ro-list">${cards}</div>`;
+}
+
 // ----- screen 3: finding drilldown -----------------------------------------
 function renderFinding(fid){
   const f = IDX.findingById[fid];
@@ -2187,7 +2561,7 @@ function renderFinding(fid){
 
   root.innerHTML = `
     <nav class="crumb">
-      <a href="#triage">待审队列</a><span class="arrow">/</span>
+      <a href="#servers">MCP 服务器</a><span class="arrow">/</span>
       <a href="#server/${f.server_id}">${escapeHtml(s?.canonical_name||'?')}</a><span class="arrow">/</span>
       Finding
     </nav>
@@ -2360,114 +2734,6 @@ function renderRelatedTab(node, f){
 }
 
 // ----- screen 4: corpus explorer ------------------------------------------
-function renderCorpus(){
-  const root = document.getElementById('root');
-  const detectors = uniqueDetectors();
-  const servers = DATA.servers.slice().sort((a,b)=>(b.risk_score||0)-(a.risk_score||0));
-
-  // build matrix: counts[server][detector] = active count
-  const counts = {};
-  for (const f of DATA.findings){
-    if (f.status !== 'active') continue;
-    counts[f.server_id] ??= {};
-    counts[f.server_id][f.detector] = (counts[f.server_id][f.detector]||0) + 1;
-  }
-
-  // group detectors by layer
-  const byLayer = {};
-  for (const d of detectors) (byLayer[d.layer] ??= []).push(d);
-  const orderedDetectors = [];
-  for (const layer of ['static_analysis','semantic_analysis','risk_scoring']){
-    if (!byLayer[layer]) continue;
-    for (const d of byLayer[layer].sort((a,b)=>a.detector.localeCompare(b.detector))) orderedDetectors.push(d);
-  }
-
-  const labelW = 240;
-  const cellW = 22;
-  const N = orderedDetectors.length;
-
-  const colHeaders = orderedDetectors.map(({detector}) =>
-    `<div class="hm-col-label" title="${escapeHtml(detector)}">${escapeHtml(detector.length>32?detector.slice(0,30)+'…':detector)}</div>`
-  ).join('');
-
-  const rows = servers.map(s => {
-    const isBenign = s.canonical_name.startsWith('benign_');
-    const labelClass = isBenign ? 'hm-row-label benign' : 'hm-row-label';
-    const cells = orderedDetectors.map(({layer, detector}) => {
-      const n = counts[s.id]?.[detector] || 0;
-      const lvl = n === 0 ? '' : n === 1 ? 'l1' : n === 2 ? 'l2' : n === 3 ? 'l3' : n <= 6 ? 'l4' : 'l5';
-      const lk = layerKey(layer);
-      return `<div class="hm-cell ${lk} ${lvl}" title="${escapeHtml(s.canonical_name)} · ${escapeHtml(detector)} · ${n}"></div>`;
-    }).join('');
-    return `<div class="${labelClass}" title="${formatScore(s.risk_score)}">${escapeHtml(s.canonical_name)}</div>${cells}`;
-  }).join('');
-
-  // recall bars
-  const recall = orderedDetectors.map(({detector}) => {
-    let mal = 0, ben = 0;
-    for (const s of servers){
-      const n = counts[s.id]?.[detector] || 0;
-      if (n === 0) continue;
-      if (s.canonical_name.startsWith('benign_')) ben++;
-      else mal++;
-    }
-    const malW = mal/8 * 100;
-    const benW = ben/3 * 100;
-    return {detector, mal, ben, malW, benW};
-  });
-
-  root.innerHTML = `
-    <div class="eyebrow"><span class="dot"></span>全景</div>
-    <h1 class="t-display-md" style="margin:0">检测器 × 服务器矩阵</h1>
-    <div class="sub-meta" style="margin-top:12px">${servers.length} 服务器 × ${orderedDetectors.length} 检测器 · 色块深度 = 活跃 finding 数</div>
-
-    <div class="heatmap-card">
-      <div class="heatmap" style="grid-template-columns: ${labelW}px repeat(${N}, ${cellW}px); grid-auto-rows: 28px; gap: 1px">
-        <div></div>${colHeaders}
-        ${rows}
-      </div>
-      <div class="hm-legend">
-        <div class="leg layer-static"><span class="sw"></span>static_analysis</div>
-        <div class="leg layer-semantic"><span class="sw"></span>semantic_analysis</div>
-        <div class="leg layer-risk"><span class="sw"></span>risk_scoring</div>
-      </div>
-    </div>
-
-    <div style="margin-top:96px">
-      <div class="eyebrow"><span class="dot"></span>质量</div>
-      <h2 class="t-display-md" style="margin:0">检测器召回率</h2>
-      <div class="sub-meta" style="margin-top:12px">良性 vs 恶意 — 一眼看出误报风险</div>
-
-      <div class="recall-card">
-        <div class="recall-row h">
-          <div class="h-cell">检测器</div>
-          <div class="h-cell">恶意 /8</div>
-          <div class="h-cell">良性 /3</div>
-        </div>
-        ${recall.filter(r=>r.mal||r.ben).map(r => `
-          <div class="recall-row">
-            <div class="det" title="${escapeHtml(r.detector)}">${escapeHtml(r.detector)}</div>
-            <div class="bar"><div class="fill" style="width:${r.malW}%"></div><div class="num">${r.mal}</div></div>
-            <div class="bar fp"><div class="fill" style="width:${r.benW}%"></div><div class="num">${r.ben}</div></div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function uniqueDetectors(){
-  const seen = new Set();
-  const out = [];
-  for (const f of DATA.findings){
-    const k = `${f.layer}|${f.detector}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({layer: f.layer, detector: f.detector});
-  }
-  return out;
-}
-
 // ----- actions: real fetch to mta-api --------------------------------------
 async function actionFinding(fid, action){
   const url = `${API_BASE}/findings/${fid}/${action}`;

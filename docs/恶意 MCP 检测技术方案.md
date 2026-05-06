@@ -565,8 +565,6 @@ def llm_code_review(finding: Finding, code_context: CodeContext) -> Verdict:
 规则：{finding.rule_id}
 代码（前后 30 行）：
 ```{code_context.lang}
-{code_context.snippet}
-```
 
 工具上下文（如属于某个 MCP tool）：
 - tool name: {finding.tool_name or 'N/A'}

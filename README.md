@@ -18,6 +18,7 @@ docs/                              # Design docs (master + per-layer sub-system)
 sql/                               # Database schema (Postgres + pgvector)
   001_schema.sql                   # Base schema
   002_llm_calls_response.sql       # llm_calls.response_json column
+  003_remote_observations.sql      # remote_observations table + extends findings.layer enum
 LICENSES/                          # Third-party attribution (Apache-2.0 from Cisco)
 example-mcps/                      # 16 example fixtures (8 malicious + 3 benign + ...)
 src/mcp_threat_analysis/
@@ -54,7 +55,13 @@ src/mcp_threat_analysis/
     persistence.py                 # Read-side helpers
     api/server.py                  # FastAPI read API + lifecycle POSTs (CORS-enabled)
     cli.py                         # mta-risk
-  tests/{static_analysis,semantic_analysis,risk_scoring}/   # Unit tests
+  remote_analysis/                 # Live MCP-server probing layer (P1)
+    transport/                     # streamable_http (P1); sse / stdio land in P3
+    detectors/                     # tls / auth / protocol — snapshot-only for P1
+    orchestrator.py                # probe → detect → persist
+    persistence.py                 # remote_observations + synthesize tools/static_summaries
+    cli.py                         # mta-remote
+  tests/{static_analysis,semantic_analysis,risk_scoring,remote_analysis}/   # Unit tests
 ```
 
 ## Prerequisites
@@ -90,6 +97,7 @@ psql -d mta -c "CREATE EXTENSION IF NOT EXISTS vector;
                 CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"
 psql -d mta -f sql/001_schema.sql
 psql -d mta -f sql/002_llm_calls_response.sql   # adds llm_calls.response_json
+psql -d mta -f sql/003_remote_observations.sql  # adds remote_observations + extends findings.layer
 ```
 
 ### LLM provider configuration
@@ -147,6 +155,40 @@ mta-risk aggregate <server-uuid>
 # affected servers, push P0/P1 to triage_queue
 mta-risk ingest
 ```
+
+### remote_analysis — probe a live MCP server (P1)
+
+`mta-remote scan` is the entry point for the remote_analysis layer. It probes
+a live MCP endpoint over streamable-HTTP (`initialize` → `tools/list` plus
+`resources/list` / `prompts/list` when advertised), captures TLS cert details,
+runs the P1 snapshot detectors, and writes a `remote_observations` row plus a
+synthetic `tools` row per reported tool — so the existing semantic-layer
+rule-based detectors (`char:hidden-unicode` / `shadow:*` / `tpa-llm` /
+`untrusted-content:unmarked`) run on remote servers unchanged.
+
+```bash
+# One-shot probe + persist
+mta-remote scan https://mcp.example.com/mcp
+
+# With OAuth bearer
+mta-remote scan https://mcp.example.com/mcp --header "Authorization=Bearer $TOKEN"
+
+# Custom server name + tighter timeout
+mta-remote scan https://mcp.example.com/mcp --canonical-name acme/email-bot --timeout 8
+```
+
+Detectors active in P1: `remote:tls-self-signed` · `remote:tls-near-expiry`
+(≤7d → high, ≤30d → medium) · `remote:auth-missing` (non-loopback, non-empty
+tools/list, no Authorization / API-key header) · `remote:protocol-version-mismatch`
+(reported `protocolVersion` outside the known set).
+
+Drift detectors (tool-added / description-mutated / schema-loosened / etc.)
+and the recurring `mta-remote watch` daemon land in P2. SSE and stdio
+transports land in P3.
+
+The exit code is `0` on probe success, `2` on transport / handshake failure;
+the failure-path observation is still persisted so the failure itself becomes
+analyst-visible.
 
 ### risk_scoring read API (FastAPI)
 
